@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw } from 'lucide-react'
+import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
@@ -58,7 +58,7 @@ function CombatTracker() {
     },
     {
       id: '3',
-      name: 'Dragon',
+      name: 'Drago',
       health: 200,
       maxHealth: 200,
       initiative: 20,
@@ -346,31 +346,67 @@ function EntityCard({
   onToggleStatus,
   getHealthColor,
 }: EntityCardProps) {
+  const [customAmount, setCustomAmount] = useState<number>(2)
   const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
+  const isDead = entity.health <= 0
+
+  const handleHeal = (amount: number) => {
+    const newHealth = Math.min(entity.health + amount, entity.maxHealth)
+    onUpdate({ health: newHealth })
+  }
+
+  const handleDamage = (amount: number) => {
+    const newHealth = Math.max(entity.health - amount, 0)
+    onUpdate({ health: newHealth })
+  }
 
   return (
     <div
-      className={`relative bg-slate-800/80 border-4 transition-all duration-300 ${isActive
-        ? 'border-amber-500 shadow-lg shadow-amber-500/20'
-        : 'border-slate-600 hover:border-slate-500'
+      className={`relative border-4 transition-all duration-300 ${isDead
+        ? 'bg-gray-900/80 border-gray-700 grayscale'
+        : isActive
+          ? 'bg-slate-800/80 border-amber-500 shadow-lg shadow-amber-500/20'
+          : 'bg-slate-800/80 border-slate-600 hover:border-slate-500'
         }`}
     >
+      {/* Dead Watermark */}
+      {isDead && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="flex items-center gap-2 rotate-[-15deg]">
+            <Skull className="w-12 h-12 text-red-500/50" />
+            <span className="text-5xl font-black text-red-500/50 retro tracking-widest">DEAD</span>
+            <Skull className="w-12 h-12 text-red-500/50" />
+          </div>
+        </div>
+      )}
+
       {/* Initiative Badge */}
       <div
-        className={`absolute -top-3 -left-3 w-10 h-10 flex items-center justify-center font-bold text-lg ${isActive ? 'bg-amber-500 text-black' : 'bg-slate-600 text-white'
+        className={`absolute -top-3 -left-3 w-10 h-10 flex items-center justify-center font-bold text-lg ${isDead
+          ? 'bg-gray-600 text-gray-400'
+          : isActive
+            ? 'bg-amber-500 text-black'
+            : 'bg-slate-600 text-white'
           }`}
       >
         {entity.initiative}
       </div>
 
       {/* Active indicator */}
-      {isActive && (
+      {isActive && !isDead && (
         <Badge className="absolute -top-2 right-4">
           ACTIVE
         </Badge>
       )}
 
-      <div className="p-4 pl-12">
+      {/* Dead indicator */}
+      {isDead && (
+        <Badge variant="destructive" className="absolute -top-2 right-4">
+          DEAD
+        </Badge>
+      )}
+
+      <div className={`p-4 pl-12 ${isDead ? 'opacity-60' : ''}`}>
         <div className="flex items-start justify-between gap-4">
           {/* Main Info */}
           <div className="flex-1 min-w-0">
@@ -382,13 +418,15 @@ function EntityCard({
                 className="max-w-xs"
               />
             ) : (
-              <h3 className="text-xl font-bold text-white truncate retro">{entity.name}</h3>
+              <h3 className={`text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
+                {entity.name}
+              </h3>
             )}
 
             {/* Health Bar */}
             <div className="mt-3">
               <div className="flex items-center gap-2 mb-1">
-                <Heart className="w-4 h-4 text-red-400" />
+                <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
                 {isEditing ? (
                   <div className="flex items-center gap-1">
                     <Input
@@ -406,17 +444,77 @@ function EntityCard({
                     />
                   </div>
                 ) : (
-                  <span className="text-sm text-gray-300">
+                  <span className={`text-sm ${isDead ? 'text-gray-500' : 'text-gray-300'}`}>
                     {entity.health} / {entity.maxHealth}
                   </span>
                 )}
               </div>
-              <div className="h-3 bg-slate-900 border border-slate-600 overflow-hidden">
+              <div className={`h-3 border overflow-hidden ${isDead ? 'bg-gray-800 border-gray-700' : 'bg-slate-900 border-slate-600'}`}>
                 <div
-                  className={`h-full transition-all duration-500 ${getHealthColor(entity.health, entity.maxHealth)}`}
+                  className={`h-full transition-all duration-500 ${isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}`}
                   style={{ width: `${healthPercent}%` }}
                 />
               </div>
+
+              {/* Heal/Damage Buttons */}
+              {!isEditing && (
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDamage(1)}
+                  >
+                    <Minus className="w-3 h-3" />
+                    1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDamage(5)}
+                  >
+                    <Minus className="w-3 h-3" />
+                    5
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleHeal(1)}
+                  >
+                    <Plus className="w-3 h-3" />
+                    1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleHeal(5)}
+                  >
+                    <Plus className="w-3 h-3" />
+                    5
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDamage(customAmount)}
+                    >
+                      <Minus className="w-3 h-3" />
+                    </Button>
+                    <Input
+                      type="number"
+                      value={customAmount}
+                      onChange={(e) => setCustomAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 text-center"
+                      min={1}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleHeal(customAmount)}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Initiative (editable) */}
