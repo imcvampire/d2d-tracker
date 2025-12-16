@@ -1,5 +1,9 @@
 We use Sentry for watching for errors in our deployed application, as well as for instrumentation of our application.
 
+## Components
+
+Use 8bitcn components instead of vanilla shacdn.
+
 ## Error collection
 
 Error collection is automatic and configured in `src/router.tsx`.
