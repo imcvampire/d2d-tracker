@@ -17,7 +17,8 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'D2D tracker',
+        title: 'D2D Toolbelt',
+        description: 'The toolbelt for Dungeons & Dragons',
       },
     ],
     links: [
@@ -33,7 +34,7 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark retro">
       <head>
         <HeadContent />
       </head>
