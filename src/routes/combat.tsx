@@ -1,0 +1,488 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import { Plus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw } from 'lucide-react'
+import { Button } from '@/components/ui/8bit/button'
+import { Input } from '@/components/ui/8bit/input'
+import { Label } from '@/components/ui/8bit/label'
+import { Checkbox } from '@/components/ui/8bit/checkbox'
+import { Badge } from '@/components/ui/8bit/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/8bit/dialog'
+
+export const Route = createFileRoute('/combat')({ component: CombatTracker })
+
+interface Entity {
+  id: string
+  name: string
+  health: number
+  maxHealth: number
+  initiative: number
+  statuses: string[]
+}
+
+const STATUS_OPTIONS = [
+  'Poisoned',
+  'Stunned',
+  'Blessed',
+  'Cursed',
+  'Burning',
+  'Frozen',
+  'Paralyzed',
+  'Invisible',
+  'Hasted',
+  'Slowed',
+]
+
+function CombatTracker() {
+  const [entities, setEntities] = useState<Entity[]>([
+    {
+      id: '1',
+      name: 'Hero',
+      health: 45,
+      maxHealth: 50,
+      initiative: 18,
+      statuses: ['Blessed'],
+    },
+    {
+      id: '2',
+      name: 'Goblin',
+      health: 12,
+      maxHealth: 15,
+      initiative: 14,
+      statuses: ['Poisoned'],
+    },
+    {
+      id: '3',
+      name: 'Dragon',
+      health: 200,
+      maxHealth: 200,
+      initiative: 20,
+      statuses: [],
+    },
+  ])
+
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [currentTurnIndex, setCurrentTurnIndex] = useState(0)
+  const [currentRound, setCurrentRound] = useState(1)
+  const [newEntity, setNewEntity] = useState<Omit<Entity, 'id'>>({
+    name: '',
+    health: 10,
+    maxHealth: 10,
+    initiative: 10,
+    statuses: [],
+  })
+
+  const sortedEntities = [...entities].sort((a, b) => b.initiative - a.initiative)
+
+  const nextTurn = () => {
+    if (sortedEntities.length === 0) return
+    const nextIndex = currentTurnIndex + 1
+    if (nextIndex >= sortedEntities.length) {
+      setCurrentTurnIndex(0)
+      setCurrentRound((r) => r + 1)
+    } else {
+      setCurrentTurnIndex(nextIndex)
+    }
+  }
+
+  const resetCombat = () => {
+    setCurrentTurnIndex(0)
+    setCurrentRound(1)
+    // Reset all entities to full health and clear statuses
+    setEntities(entities.map((e) => ({
+      ...e,
+      health: e.maxHealth,
+      statuses: [],
+    })))
+  }
+
+  const addEntity = () => {
+    if (!newEntity.name.trim()) return
+    const entity: Entity = {
+      ...newEntity,
+      id: Date.now().toString(),
+    }
+    setEntities([...entities, entity])
+    setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [] })
+    setShowAddForm(false)
+  }
+
+  const deleteEntity = (id: string) => {
+    setEntities(entities.filter((e) => e.id !== id))
+  }
+
+  const updateEntity = (id: string, updates: Partial<Entity>) => {
+    setEntities(entities.map((e) => (e.id === id ? { ...e, ...updates } : e)))
+  }
+
+  const toggleStatus = (entityId: string, status: string) => {
+    const entity = entities.find((e) => e.id === entityId)
+    if (!entity) return
+    const newStatuses = entity.statuses.includes(status)
+      ? entity.statuses.filter((s) => s !== status)
+      : [...entity.statuses, status]
+    updateEntity(entityId, { statuses: newStatuses })
+  }
+
+  const toggleNewEntityStatus = (status: string) => {
+    const newStatuses = newEntity.statuses.includes(status)
+      ? newEntity.statuses.filter((s) => s !== status)
+      : [...newEntity.statuses, status]
+    setNewEntity({ ...newEntity, statuses: newStatuses })
+  }
+
+  const getHealthColor = (health: number, maxHealth: number) => {
+    const ratio = health / maxHealth
+    if (ratio > 0.6) return 'bg-emerald-500'
+    if (ratio > 0.3) return 'bg-amber-500'
+    return 'bg-red-500'
+  }
+
+
+  return (
+    <div className="min-h-screen bg-linear-to-b from-slate-900 via-purple-950 to-slate-900">
+      {/* Header */}
+      <div className="relative py-8 px-6 text-center overflow-hidden border-b-4 border-amber-500/50">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0wIDBoNDBWNDBIMHoiLz48cGF0aCBkPSJNMjAgMjBoMnYyaC0yem0tMTAgMGgydjJoLTJ6bTIwIDBoMnYyaC0yeiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIvPjwvZz48L3N2Zz4=')] opacity-50"></div>
+        <div className="relative">
+          <div className="flex items-center justify-center gap-4 mb-2">
+            <Swords className="w-10 h-10 text-amber-400" />
+            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight retro">
+              <span className="text-amber-400">D2D</span>
+            </h1>
+            <Shield className="w-10 h-10 text-amber-400" />
+          </div>
+          <p className="text-amber-200/70 text-sm tracking-widest uppercase">
+            Combat Tracker
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Round Counter & Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-slate-800/60 border-2 border-slate-600 p-4">
+          <div className="flex items-center gap-6">
+            <div className="text-center">
+              <div className="text-xs text-amber-200/70 uppercase tracking-wider mb-1">Round</div>
+              <div className="text-4xl font-black text-amber-400 retro">{currentRound}</div>
+            </div>
+            {sortedEntities.length > 0 && (
+              <div className="text-center border-l border-slate-600 pl-6">
+                <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Turn</div>
+                <div className="text-lg font-bold text-white truncate max-w-[150px]">
+                  {sortedEntities[currentTurnIndex]?.name || '—'}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={nextTurn}
+              disabled={sortedEntities.length === 0}
+            >
+              <SkipForward className="w-5 h-5" />
+              Next Turn
+            </Button>
+            <Button
+              onClick={resetCombat}
+              variant="outline"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset
+            </Button>
+            <Button
+              onClick={() => setShowAddForm(true)}
+            >
+              <Plus className="w-5 h-5" />
+              Add
+            </Button>
+          </div>
+        </div>
+
+        {/* Add Entity Dialog */}
+        <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>New Entity</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  type="text"
+                  value={newEntity.name}
+                  onChange={(e) => setNewEntity({ ...newEntity, name: e.target.value })}
+                  placeholder="Enter name..."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Health</Label>
+                  <Input
+                    type="number"
+                    value={newEntity.health}
+                    onChange={(e) =>
+                      setNewEntity({ ...newEntity, health: parseInt(e.target.value) || 0 })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Max HP</Label>
+                  <Input
+                    type="number"
+                    value={newEntity.maxHealth}
+                    onChange={(e) =>
+                      setNewEntity({ ...newEntity, maxHealth: parseInt(e.target.value) || 1 })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Initiative</Label>
+                <Input
+                  type="number"
+                  value={newEntity.initiative}
+                  onChange={(e) =>
+                    setNewEntity({ ...newEntity, initiative: parseInt(e.target.value) || 0 })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Statuses</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {STATUS_OPTIONS.map((status) => (
+                    <div key={status} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`new-status-${status}`}
+                        checked={newEntity.statuses.includes(status)}
+                        onCheckedChange={() => toggleNewEntityStatus(status)}
+                      />
+                      <Label
+                        htmlFor={`new-status-${status}`}
+                        className="cursor-pointer"
+                      >
+                        {status}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                onClick={() => setShowAddForm(false)}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button onClick={addEntity}>
+                <Check className="w-4 h-4" />
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Entity List */}
+        <div className="space-y-4">
+          {sortedEntities.length === 0 ? (
+            <div className="text-center py-16 text-gray-500">
+              <Swords className="w-16 h-16 mx-auto mb-4 opacity-30" />
+              <p className="text-lg retro">No combatants yet</p>
+              <p className="text-sm">Add an entity to begin tracking</p>
+            </div>
+          ) : (
+            sortedEntities.map((entity, index) => (
+              <EntityCard
+                key={entity.id}
+                entity={entity}
+                isActive={index === currentTurnIndex}
+                isEditing={editingId === entity.id}
+                onEdit={() => setEditingId(editingId === entity.id ? null : entity.id)}
+                onDelete={() => deleteEntity(entity.id)}
+                onUpdate={(updates) => updateEntity(entity.id, updates)}
+                onToggleStatus={(status) => toggleStatus(entity.id, status)}
+                getHealthColor={getHealthColor}
+              />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface EntityCardProps {
+  entity: Entity
+  isActive: boolean
+  isEditing: boolean
+  onEdit: () => void
+  onDelete: () => void
+  onUpdate: (updates: Partial<Entity>) => void
+  onToggleStatus: (status: string) => void
+  getHealthColor: (health: number, maxHealth: number) => string
+}
+
+function EntityCard({
+  entity,
+  isActive,
+  isEditing,
+  onEdit,
+  onDelete,
+  onUpdate,
+  onToggleStatus,
+  getHealthColor,
+}: EntityCardProps) {
+  const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
+
+  return (
+    <div
+      className={`relative bg-slate-800/80 border-4 transition-all duration-300 ${isActive
+        ? 'border-amber-500 shadow-lg shadow-amber-500/20'
+        : 'border-slate-600 hover:border-slate-500'
+        }`}
+    >
+      {/* Initiative Badge */}
+      <div
+        className={`absolute -top-3 -left-3 w-10 h-10 flex items-center justify-center font-bold text-lg ${isActive ? 'bg-amber-500 text-black' : 'bg-slate-600 text-white'
+          }`}
+      >
+        {entity.initiative}
+      </div>
+
+      {/* Active indicator */}
+      {isActive && (
+        <Badge className="absolute -top-2 right-4">
+          ACTIVE
+        </Badge>
+      )}
+
+      <div className="p-4 pl-12">
+        <div className="flex items-start justify-between gap-4">
+          {/* Main Info */}
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <Input
+                type="text"
+                value={entity.name}
+                onChange={(e) => onUpdate({ name: e.target.value })}
+                className="max-w-xs"
+              />
+            ) : (
+              <h3 className="text-xl font-bold text-white truncate retro">{entity.name}</h3>
+            )}
+
+            {/* Health Bar */}
+            <div className="mt-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Heart className="w-4 h-4 text-red-400" />
+                {isEditing ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      type="number"
+                      value={entity.health}
+                      onChange={(e) => onUpdate({ health: parseInt(e.target.value) || 0 })}
+                      className="w-20"
+                    />
+                    <span className="text-gray-400">/</span>
+                    <Input
+                      type="number"
+                      value={entity.maxHealth}
+                      onChange={(e) => onUpdate({ maxHealth: parseInt(e.target.value) || 1 })}
+                      className="w-20"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-300">
+                    {entity.health} / {entity.maxHealth}
+                  </span>
+                )}
+              </div>
+              <div className="h-3 bg-slate-900 border border-slate-600 overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${getHealthColor(entity.health, entity.maxHealth)}`}
+                  style={{ width: `${healthPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Initiative (editable) */}
+            {isEditing && (
+              <div className="mt-3 flex items-center gap-2">
+                <Label>Initiative:</Label>
+                <Input
+                  type="number"
+                  value={entity.initiative}
+                  onChange={(e) => onUpdate({ initiative: parseInt(e.target.value) || 0 })}
+                  className="w-20"
+                />
+              </div>
+            )}
+
+            {/* Statuses */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {isEditing ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
+                  {STATUS_OPTIONS.map((status) => (
+                    <div key={status} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`${entity.id}-status-${status}`}
+                        checked={entity.statuses.includes(status)}
+                        onCheckedChange={() => onToggleStatus(status)}
+                      />
+                      <Label
+                        htmlFor={`${entity.id}-status-${status}`}
+                        className="cursor-pointer"
+                      >
+                        {status}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              ) : entity.statuses.length > 0 ? (
+                entity.statuses.map((status) => (
+                  <Badge key={status}>
+                    {status}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-xs text-gray-500 italic">No status effects</span>
+              )}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 shrink-0">
+            <Button
+              onClick={onEdit}
+              size="icon"
+              variant={isEditing ? 'default' : 'outline'}
+            >
+              {isEditing ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+            </Button>
+            <Button
+              onClick={onDelete}
+              size="icon"
+              variant="destructive"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
