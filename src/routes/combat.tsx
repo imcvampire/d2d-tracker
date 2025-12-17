@@ -102,14 +102,38 @@ function CombatTracker() {
 
   const nextTurn = useCallback(() => {
     if (sortedEntities.length === 0) return
-    const nextIndex = currentTurnIndex + 1
-    if (nextIndex >= sortedEntities.length) {
-      setCurrentTurnIndex(0)
-      setCurrentRound((r) => r + 1)
-    } else {
-      setCurrentTurnIndex(nextIndex)
+
+    // Find next alive entity, skipping dead ones
+    let nextIndex = currentTurnIndex + 1
+    let roundIncremented = false
+    let checkedCount = 0
+
+    while (checkedCount < sortedEntities.length) {
+      if (nextIndex >= sortedEntities.length) {
+        nextIndex = 0
+        if (!roundIncremented) {
+          setCurrentRound((r) => r + 1)
+          roundIncremented = true
+        }
+      }
+
+      // Check if entity at nextIndex is alive
+      if (sortedEntities[nextIndex].health > 0) {
+        setCurrentTurnIndex(nextIndex)
+        return
+      }
+
+      nextIndex++
+      checkedCount++
     }
-  }, [sortedEntities.length, currentTurnIndex])
+
+    // If all entities are dead, just move to the next index anyway
+    const fallbackIndex = (currentTurnIndex + 1) % sortedEntities.length
+    if (fallbackIndex === 0) {
+      setCurrentRound((r) => r + 1)
+    }
+    setCurrentTurnIndex(fallbackIndex)
+  }, [sortedEntities, currentTurnIndex])
 
   const resetCombat = useCallback(() => {
     setCurrentTurnIndex(0)
