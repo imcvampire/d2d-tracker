@@ -293,89 +293,92 @@ function CombatTracker() {
         {/* Add Entity Dialog */}
         <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
           <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>New Entity</DialogTitle>
-            </DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); addEntity(); }}>
+              <DialogHeader>
+                <DialogTitle>New Entity</DialogTitle>
+              </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input
-                  type="text"
-                  value={newEntity.name}
-                  onChange={(e) => setNewEntity({ ...newEntity, name: e.target.value })}
-                  placeholder="Enter name..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Health</Label>
+                  <Label>Name</Label>
+                  <Input
+                    type="text"
+                    value={newEntity.name}
+                    onChange={(e) => setNewEntity({ ...newEntity, name: e.target.value })}
+                    placeholder="Enter name..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Health</Label>
+                    <Input
+                      type="number"
+                      value={newEntity.health}
+                      onChange={(e) =>
+                        setNewEntity({ ...newEntity, health: parseInt(e.target.value) || 0 })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Max HP</Label>
+                    <Input
+                      type="number"
+                      value={newEntity.maxHealth}
+                      onChange={(e) =>
+                        setNewEntity({ ...newEntity, maxHealth: parseInt(e.target.value) || 1 })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Initiative</Label>
                   <Input
                     type="number"
-                    value={newEntity.health}
+                    value={newEntity.initiative}
                     onChange={(e) =>
-                      setNewEntity({ ...newEntity, health: parseInt(e.target.value) || 0 })
+                      setNewEntity({ ...newEntity, initiative: parseInt(e.target.value) || 0 })
                     }
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label>Max HP</Label>
-                  <Input
-                    type="number"
-                    value={newEntity.maxHealth}
-                    onChange={(e) =>
-                      setNewEntity({ ...newEntity, maxHealth: parseInt(e.target.value) || 1 })
-                    }
-                  />
+                  <Label>Statuses</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {STATUS_OPTIONS.map((status) => (
+                      <div key={status} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`new-status-${status}`}
+                          checked={newEntity.statuses.includes(status)}
+                          onCheckedChange={() => toggleNewEntityStatus(status)}
+                        />
+                        <Label
+                          htmlFor={`new-status-${status}`}
+                          className="cursor-pointer"
+                        >
+                          {status}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Initiative</Label>
-                <Input
-                  type="number"
-                  value={newEntity.initiative}
-                  onChange={(e) =>
-                    setNewEntity({ ...newEntity, initiative: parseInt(e.target.value) || 0 })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Statuses</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {STATUS_OPTIONS.map((status) => (
-                    <div key={status} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`new-status-${status}`}
-                        checked={newEntity.statuses.includes(status)}
-                        onCheckedChange={() => toggleNewEntityStatus(status)}
-                      />
-                      <Label
-                        htmlFor={`new-status-${status}`}
-                        className="cursor-pointer"
-                      >
-                        {status}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter className="gap-2">
-              <Button
-                onClick={() => setShowAddForm(false)}
-                variant="outline"
-              >
-                Cancel
-              </Button>
-              <Button onClick={addEntity}>
-                <Check className="w-4 h-4" />
-                Create
-              </Button>
-            </DialogFooter>
+              <DialogFooter className="gap-2">
+                <Button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  <Check className="w-4 h-4" />
+                  Create
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
 
