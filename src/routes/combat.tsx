@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull, Keyboard } from 'lucide-react'
+import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
@@ -182,64 +182,67 @@ function CombatTracker() {
   return (
     <div className="min-h-screen bg-linear-to-b from-slate-900 via-purple-950 to-slate-900">
       {/* Header */}
-      <div className="relative py-8 px-6 text-center overflow-hidden border-b-4 border-amber-500/50">
+      <div className="relative py-6 sm:py-8 px-4 sm:px-6 text-center overflow-hidden border-b-4 border-amber-500/50">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0wIDBoNDBWNDBIMHoiLz48cGF0aCBkPSJNMjAgMjBoMnYyaC0yem0tMTAgMGgydjJoLTJ6bTIwIDBoMnYyaC0yeiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIvPjwvZz48L3N2Zz4=')] opacity-50"></div>
         <div className="relative">
-          <div className="flex items-center justify-center gap-4 mb-2">
-            <Swords className="w-10 h-10 text-amber-400" />
-            <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight retro">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-2">
+            <Swords className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight retro">
               <span className="text-amber-400">D2D</span>
             </h1>
-            <Shield className="w-10 h-10 text-amber-400" />
+            <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
           </div>
-          <p className="text-amber-200/70 text-sm tracking-widest uppercase">
+          <p className="text-amber-200/70 text-xs sm:text-sm tracking-widest uppercase">
             Combat Tracker
           </p>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-3 sm:p-6">
         {/* Round Counter & Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 bg-slate-800/60 border-2 border-slate-600 p-4">
-          <div className="flex items-center gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 bg-slate-800/60 border-2 border-slate-600 p-3 sm:p-4">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div className="text-center">
               <div className="text-xs text-amber-200/70 uppercase tracking-wider mb-1">Round</div>
-              <div className="text-4xl font-black text-amber-400 retro">{currentRound}</div>
+              <div className="text-3xl sm:text-4xl font-black text-amber-400 retro">{currentRound}</div>
             </div>
             {sortedEntities.length > 0 && (
-              <div className="text-center border-l border-slate-600 pl-6">
+              <div className="text-center border-l border-slate-600 pl-4 sm:pl-6">
                 <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Turn</div>
-                <div className="text-lg font-bold text-white truncate max-w-[150px]">
+                <div className="text-base sm:text-lg font-bold text-white truncate max-w-[120px] sm:max-w-[150px]">
                   {sortedEntities[currentTurnIndex]?.name || '—'}
                 </div>
               </div>
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               onClick={nextTurn}
               disabled={sortedEntities.length === 0}
+              className="flex-1 sm:flex-none"
             >
-              <SkipForward className="w-5 h-5" />
-              Next Turn
-              <Kbd className="ml-1.5">N</Kbd>
+              <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="sm:inline">Next</span>
+              <Kbd className="ml-1.5 hidden md:inline-flex">N</Kbd>
             </Button>
             <Button
               onClick={resetCombat}
               variant="outline"
+              className="flex-1 sm:flex-none"
             >
               <RotateCcw className="w-4 h-4" />
-              Reset
-              <Kbd className="ml-1.5">R</Kbd>
+              <span className="hidden xs:inline">Reset</span>
+              <Kbd className="ml-1.5 hidden md:inline-flex">R</Kbd>
             </Button>
             <Button
               onClick={openAddForm}
+              className="flex-1 sm:flex-none"
             >
-              <Plus className="w-5 h-5" />
-              Add
-              <Kbd className="ml-1.5">A</Kbd>
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className="hidden xs:inline">Add</span>
+              <Kbd className="ml-1.5 hidden md:inline-flex">A</Kbd>
             </Button>
           </div>
         </div>
@@ -409,17 +412,17 @@ function EntityCard({
       {/* Dead Watermark */}
       {isDead && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="flex items-center gap-2 rotate-[-15deg]">
-            <Skull className="w-12 h-12 text-red-500/50" />
-            <span className="text-5xl font-black text-red-500/50 retro tracking-widest">DEAD</span>
-            <Skull className="w-12 h-12 text-red-500/50" />
+          <div className="flex items-center gap-1 sm:gap-2 rotate-[-15deg]">
+            <Skull className="w-8 h-8 sm:w-12 sm:h-12 text-red-500/50" />
+            <span className="text-3xl sm:text-5xl font-black text-red-500/50 retro tracking-widest">DEAD</span>
+            <Skull className="w-8 h-8 sm:w-12 sm:h-12 text-red-500/50" />
           </div>
         </div>
       )}
 
       {/* Initiative Badge */}
       <div
-        className={`absolute -top-3 -left-3 w-10 h-10 flex items-center justify-center font-bold text-lg transition-all ${isDead
+        className={`absolute -top-2 -left-2 sm:-top-3 sm:-left-3 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center font-bold text-sm sm:text-lg transition-all ${isDead
           ? 'bg-gray-600 text-gray-400'
           : isActive
             ? 'bg-amber-400 text-black scale-110 shadow-lg shadow-amber-400/50'
@@ -431,20 +434,42 @@ function EntityCard({
 
       {/* Active indicator */}
       {isActive && !isDead && (
-        <Badge className="absolute -top-2 right-4 animate-bounce bg-amber-400 text-black font-black">
-          ⚔️ YOUR TURN ⚔️
+        <Badge className="absolute -top-2 sm:-top-3 left-1/2 -translate-x-1/2 animate-bounce bg-amber-400 text-black font-black text-[10px] sm:text-xs z-20">
+          <span className="hidden sm:inline">⚔️ YOUR TURN ⚔️</span>
+          <span className="sm:hidden">⚔️ TURN</span>
         </Badge>
       )}
 
       {/* Dead indicator */}
       {isDead && (
-        <Badge variant="destructive" className="absolute -top-2 right-4">
+        <Badge variant="destructive" className="absolute -top-2 sm:-top-3 right-10 sm:right-12 text-[10px] sm:text-xs z-20">
+          <Skull className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
           DEAD
         </Badge>
       )}
 
-      <div className={`p-4 pl-12 ${isDead ? 'opacity-60' : ''}`}>
-        <div className="flex items-start justify-between gap-4">
+      {/* Floating Action Buttons */}
+      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1 sm:gap-2 z-20">
+        <Button
+          onClick={onEdit}
+          size="icon"
+          variant={isEditing ? 'default' : 'outline'}
+          className="w-7 h-7 sm:w-8 sm:h-8"
+        >
+          {isEditing ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+        </Button>
+        <Button
+          onClick={onDelete}
+          size="icon"
+          variant="destructive"
+          className="w-7 h-7 sm:w-8 sm:h-8"
+        >
+          <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+        </Button>
+      </div>
+
+      <div className={`p-3 sm:p-4 pl-10 sm:pl-12 ${isDead ? 'opacity-60' : ''}`}>
+        <div className="flex items-start">
           {/* Main Info */}
           <div className="flex-1 min-w-0">
             {isEditing ? (
@@ -452,10 +477,10 @@ function EntityCard({
                 type="text"
                 value={entity.name}
                 onChange={(e) => onUpdate({ name: e.target.value })}
-                className="max-w-xs"
+                className="max-w-full sm:max-w-xs"
               />
             ) : (
-              <h3 className={`text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
+              <h3 className={`text-lg sm:text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
                 {entity.name}
               </h3>
             )}
@@ -495,44 +520,53 @@ function EntityCard({
 
               {/* Heal/Damage Buttons */}
               {!isEditing && (
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDamage(1)}
-                  >
-                    <Minus className="w-3 h-3" />
-                    1
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDamage(5)}
-                  >
-                    <Minus className="w-3 h-3" />
-                    5
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleHeal(1)}
-                  >
-                    <Plus className="w-3 h-3" />
-                    1
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleHeal(5)}
-                  >
-                    <Plus className="w-3 h-3" />
-                    5
-                  </Button>
-                  <div className="flex items-center gap-1">
+                <div className="mt-2 space-y-2">
+                  {/* Quick buttons row */}
+                  <div className="grid grid-cols-4 gap-1 sm:gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDamage(1)}
+                      className="text-xs sm:text-sm"
+                    >
+                      <Minus className="w-3 h-3" />
+                      1
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDamage(5)}
+                      className="text-xs sm:text-sm"
+                    >
+                      <Minus className="w-3 h-3" />
+                      5
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleHeal(1)}
+                      className="text-xs sm:text-sm"
+                    >
+                      <Plus className="w-3 h-3" />
+                      1
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleHeal(5)}
+                      className="text-xs sm:text-sm"
+                    >
+                      <Plus className="w-3 h-3" />
+                      5
+                    </Button>
+                  </div>
+                  {/* Custom amount row */}
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <Button
                       size="sm"
                       variant="destructive"
                       onClick={() => handleDamage(customAmount)}
+                      className="shrink-0"
                     >
                       <Minus className="w-3 h-3" />
                     </Button>
@@ -540,12 +574,13 @@ function EntityCard({
                       type="number"
                       value={customAmount}
                       onChange={(e) => setCustomAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-16 text-center"
+                      className="w-full sm:w-20 text-center"
                       min={1}
                     />
                     <Button
                       size="sm"
                       onClick={() => handleHeal(customAmount)}
+                      className="shrink-0"
                     >
                       <Plus className="w-3 h-3" />
                     </Button>
@@ -597,24 +632,6 @@ function EntityCard({
                 <span className="text-xs text-gray-500 italic">No status effects</span>
               )}
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 shrink-0">
-            <Button
-              onClick={onEdit}
-              size="icon"
-              variant={isEditing ? 'default' : 'outline'}
-            >
-              {isEditing ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
-            </Button>
-            <Button
-              onClick={onDelete}
-              size="icon"
-              variant="destructive"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
           </div>
         </div>
       </div>
