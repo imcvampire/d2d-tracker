@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
 import { Checkbox } from '@/components/ui/8bit/checkbox'
 import { Badge } from '@/components/ui/8bit/badge'
+import { Progress } from '@/components/ui/8bit/progress'
 import {
   Dialog,
   DialogContent,
@@ -540,12 +541,12 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                   </span>
                 )}
               </div>
-              <div className={`h-3 border overflow-hidden ${isDead ? 'bg-gray-800 border-gray-700' : 'bg-slate-900 border-slate-600'}`}>
-                <div
-                  className={`h-full transition-all duration-500 ${isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}`}
-                  style={{ width: `${healthPercent}%` }}
-                />
-              </div>
+              <Progress
+                value={healthPercent}
+                variant="retro"
+                progressBg={isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}
+                className="h-4"
+              />
 
               {/* Heal/Damage Buttons */}
               {!isEditing && (
