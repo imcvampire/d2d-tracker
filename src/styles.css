@@ -133,3 +133,22 @@ code {
     @apply bg-background text-foreground;
   }
 }
+
+/* Active turn glow animation */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2);
+    border-color: rgb(251 191 36);
+  }
+
+  50% {
+    box-shadow: 0 0 30px rgba(251, 191, 36, 0.6), 0 0 60px rgba(251, 191, 36, 0.3), 0 0 80px rgba(251, 191, 36, 0.1);
+    border-color: rgb(253 224 71);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}

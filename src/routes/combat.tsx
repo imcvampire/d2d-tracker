@@ -94,10 +94,9 @@ function CombatTracker() {
   const resetCombat = () => {
     setCurrentTurnIndex(0)
     setCurrentRound(1)
-    // Reset all entities to full health and clear statuses
+    // Clear statuses but keep current HP
     setEntities(entities.map((e) => ({
       ...e,
-      health: e.maxHealth,
       statuses: [],
     })))
   }
@@ -365,7 +364,7 @@ function EntityCard({
       className={`relative border-4 transition-all duration-300 ${isDead
         ? 'bg-gray-900/80 border-gray-700 grayscale'
         : isActive
-          ? 'bg-slate-800/80 border-amber-500 shadow-lg shadow-amber-500/20'
+          ? 'bg-linear-to-r from-amber-950/50 via-slate-800/80 to-amber-950/50 border-amber-400 shadow-[0_0_20px_rgba(251,191,36,0.4),0_0_40px_rgba(251,191,36,0.2)] ring-2 ring-amber-400/50 ring-offset-2 ring-offset-slate-900 animate-pulse-glow'
           : 'bg-slate-800/80 border-slate-600 hover:border-slate-500'
         }`}
     >
@@ -382,10 +381,10 @@ function EntityCard({
 
       {/* Initiative Badge */}
       <div
-        className={`absolute -top-3 -left-3 w-10 h-10 flex items-center justify-center font-bold text-lg ${isDead
+        className={`absolute -top-3 -left-3 w-10 h-10 flex items-center justify-center font-bold text-lg transition-all ${isDead
           ? 'bg-gray-600 text-gray-400'
           : isActive
-            ? 'bg-amber-500 text-black'
+            ? 'bg-amber-400 text-black scale-110 shadow-lg shadow-amber-400/50'
             : 'bg-slate-600 text-white'
           }`}
       >
@@ -394,8 +393,8 @@ function EntityCard({
 
       {/* Active indicator */}
       {isActive && !isDead && (
-        <Badge className="absolute -top-2 right-4">
-          ACTIVE
+        <Badge className="absolute -top-2 right-4 animate-bounce bg-amber-400 text-black font-black">
+          ⚔️ YOUR TURN ⚔️
         </Badge>
       )}
 
