@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useCallback, useRef, forwardRef } from 'react'
-import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, forwardRef, useMemo } from 'react'
+import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull, Loader2, Users, Crown, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
@@ -16,6 +16,12 @@ import {
 } from '@/components/ui/8bit/dialog'
 import { Kbd } from '@/components/ui/8bit/kbd'
 import { AuthGuard } from '@/components/AuthGuard'
+import { useAuth } from '@/hooks/useAuth'
+import { db } from '@/lib/firebase'
+import { doc, setDoc, DocumentReference } from 'firebase/firestore'
+import { useDocumentData } from 'react-firebase-hooks/firestore'
+import * as Sentry from '@sentry/tanstackstart-react'
+import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/combat/$id')({ component: ProtectedCombatTracker })
 
@@ -36,6 +42,16 @@ interface Entity {
     statuses: string[]
 }
 
+interface CombatState {
+    entities: Entity[]
+    currentTurnIndex: number
+    currentRound: number
+    dungeonMaster: string
+    players: string[]
+    createdAt: number
+    updatedAt: number
+}
+
 const STATUS_OPTIONS = [
     'Poisoned',
     'Stunned',
@@ -51,13 +67,18 @@ const STATUS_OPTIONS = [
 
 function CombatTracker() {
     const { id: combatId } = Route.useParams()
+    const { user } = useAuth()
+    const combatRef = useMemo(() => doc(db, 'combats', combatId) as DocumentReference<CombatState>, [combatId])
 
-    const [entities, setEntities] = useState<Entity[]>([])
+    // Firebase is the source of truth - useDocumentData handles real-time subscription
+    const [combatState, loading, error] = useDocumentData(combatRef)
 
+    // Local UI state (not synced to Firebase)
     const [editingId, setEditingId] = useState<string | null>(null)
     const [showAddForm, setShowAddForm] = useState(false)
-    const [currentTurnIndex, setCurrentTurnIndex] = useState(0)
-    const [currentRound, setCurrentRound] = useState(1)
+    const [showAddPlayerForm, setShowAddPlayerForm] = useState(false)
+    const [showPartyList, setShowPartyList] = useState(true)
+    const [newPlayerEmail, setNewPlayerEmail] = useState('')
     const [newEntity, setNewEntity] = useState<Omit<Entity, 'id'>>({
         name: '',
         health: 10,
@@ -66,16 +87,56 @@ function CombatTracker() {
         statuses: [],
     })
 
+    // Derived state from Firebase
+    const entities = combatState?.entities ?? []
+    const currentTurnIndex = combatState?.currentTurnIndex ?? 0
+    const currentRound = combatState?.currentRound ?? 1
+    const dungeonMaster = combatState?.dungeonMaster ?? ''
+    const players = combatState?.players ?? []
     const sortedEntities = [...entities].sort((a, b) => b.initiative - a.initiative)
 
     // Refs to track entity card elements for scrolling
     const entityRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
-    // TODO: Load combat data from Firebase using combatId
+    // Update combat state in Firebase (source of truth)
+    const updateCombat = useCallback(async (updates: Partial<CombatState>) => {
+        try {
+            await Sentry.startSpan({ name: 'Updating combat state in Firebase' }, async () => {
+                await setDoc(combatRef, {
+                    ...updates,
+                    updatedAt: Date.now(),
+                }, { merge: true })
+            })
+        } catch (err) {
+            console.error('Error updating Firebase:', err)
+            Sentry.captureException(err)
+        }
+    }, [combatRef])
+
+    // Create document if it doesn't exist (runs once when loading completes and no data)
     useEffect(() => {
-        // Future: Fetch combat data from Firebase
-        console.log('Loading combat session:', combatId)
-    }, [combatId])
+        if (!loading && !combatState && !error && user) {
+            console.log('Creating new combat session:', combatId)
+            const newState: CombatState = {
+                entities: [],
+                currentTurnIndex: 0,
+                currentRound: 1,
+                dungeonMaster: user.email ?? '',
+                players: [],
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            }
+            setDoc(combatRef, newState)
+        }
+    }, [loading, combatState, error, combatId, combatRef, user])
+
+    // Report errors to Sentry
+    useEffect(() => {
+        if (error) {
+            console.error('Error listening to combat state:', error)
+            Sentry.captureException(error)
+        }
+    }, [error])
 
     // Scroll active entity into view when turn changes
     useEffect(() => {
@@ -97,6 +158,7 @@ function CombatTracker() {
 
         // Find next alive entity, skipping dead ones
         let nextIndex = currentTurnIndex + 1
+        let newRound = currentRound
         let roundIncremented = false
         let checkedCount = 0
 
@@ -104,14 +166,14 @@ function CombatTracker() {
             if (nextIndex >= sortedEntities.length) {
                 nextIndex = 0
                 if (!roundIncremented) {
-                    setCurrentRound((r) => r + 1)
+                    newRound = currentRound + 1
                     roundIncremented = true
                 }
             }
 
             // Check if entity at nextIndex is alive
             if (sortedEntities[nextIndex].health > 0) {
-                setCurrentTurnIndex(nextIndex)
+                updateCombat({ currentTurnIndex: nextIndex, currentRound: newRound })
                 return
             }
 
@@ -121,21 +183,22 @@ function CombatTracker() {
 
         // If all entities are dead, just move to the next index anyway
         const fallbackIndex = (currentTurnIndex + 1) % sortedEntities.length
-        if (fallbackIndex === 0) {
-            setCurrentRound((r) => r + 1)
-        }
-        setCurrentTurnIndex(fallbackIndex)
-    }, [sortedEntities, currentTurnIndex])
+        const fallbackRound = fallbackIndex === 0 ? currentRound + 1 : currentRound
+        updateCombat({ currentTurnIndex: fallbackIndex, currentRound: fallbackRound })
+    }, [sortedEntities, currentTurnIndex, currentRound, updateCombat])
 
     const resetCombat = useCallback(() => {
-        setCurrentTurnIndex(0)
-        setCurrentRound(1)
         // Clear statuses but keep current HP
-        setEntities(entities.map((e) => ({
+        const newEntities = entities.map((e) => ({
             ...e,
             statuses: [],
-        })))
-    }, [entities])
+        }))
+        updateCombat({
+            entities: newEntities,
+            currentTurnIndex: 0,
+            currentRound: 1,
+        })
+    }, [entities, updateCombat])
 
     const openAddForm = useCallback(() => {
         setShowAddForm(true)
@@ -147,7 +210,7 @@ function CombatTracker() {
             ...newEntity,
             id: Date.now().toString(),
         }
-        setEntities([...entities, entity])
+        updateCombat({ entities: [...entities, entity] })
         setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [] })
         setShowAddForm(false)
     }
@@ -183,11 +246,13 @@ function CombatTracker() {
     }, [nextTurn, resetCombat, openAddForm])
 
     const deleteEntity = (id: string) => {
-        setEntities(entities.filter((e) => e.id !== id))
+        updateCombat({ entities: entities.filter((e) => e.id !== id) })
     }
 
     const updateEntity = (id: string, updates: Partial<Entity>) => {
-        setEntities(entities.map((e) => (e.id === id ? { ...e, ...updates } : e)))
+        updateCombat({
+            entities: entities.map((e) => (e.id === id ? { ...e, ...updates } : e))
+        })
     }
 
     const toggleStatus = (entityId: string, status: string) => {
@@ -206,6 +271,18 @@ function CombatTracker() {
         setNewEntity({ ...newEntity, statuses: newStatuses })
     }
 
+    const addPlayer = () => {
+        if (!newPlayerEmail.trim()) return
+        if (players.includes(newPlayerEmail.trim())) return
+        updateCombat({ players: [...players, newPlayerEmail.trim()] })
+        setNewPlayerEmail('')
+        setShowAddPlayerForm(false)
+    }
+
+    const removePlayer = (email: string) => {
+        updateCombat({ players: players.filter((p) => p !== email) })
+    }
+
     const getHealthColor = (health: number, maxHealth: number) => {
         const ratio = health / maxHealth
         if (ratio > 0.6) return 'bg-emerald-500'
@@ -213,6 +290,17 @@ function CombatTracker() {
         return 'bg-red-500'
     }
 
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-linear-to-b from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 className="w-12 h-12 text-amber-400 animate-spin mx-auto mb-4" />
+                    <p className="text-amber-200/70 text-sm tracking-widest uppercase">Loading Combat...</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-linear-to-b from-slate-900 via-purple-950 to-slate-900">
@@ -281,6 +369,109 @@ function CombatTracker() {
                         </Button>
                     </div>
                 </div>
+
+                {/* Players Section */}
+                <div className="mb-4 bg-slate-800/80 border-2 border-slate-600 p-3 sm:p-4">
+                    <div className={cn("flex items-center justify-between", showPartyList && "mb-3")}>
+                        <button
+                            onClick={() => setShowPartyList(!showPartyList)}
+                            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                        >
+                            {showPartyList ? (
+                                <ChevronDown className="w-5 h-5 text-amber-400" />
+                            ) : (
+                                <ChevronRight className="w-5 h-5 text-amber-400" />
+                            )}
+                            <Users className="w-5 h-5 text-amber-400" />
+                            <h2 className="text-lg font-bold text-white retro">Party</h2>
+                            <Badge variant="outline" className="ml-2">
+                                {players.length + 1}
+                            </Badge>
+                        </button>
+                        {showPartyList && (
+                            <Button
+                                onClick={() => setShowAddPlayerForm(true)}
+                                size="sm"
+                                variant="outline"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add Player
+                            </Button>
+                        )}
+                    </div>
+
+                    {showPartyList && (
+                        <>
+                            {/* Dungeon Master */}
+                            <div className="flex items-center gap-2 mb-2 p-2 bg-amber-900/30 border border-amber-500/30">
+                                <Crown className="w-4 h-4 text-amber-400" />
+                                <span className="text-amber-200 text-sm font-medium">Dungeon Master:</span>
+                                <span className="text-white text-sm">{dungeonMaster}</span>
+                            </div>
+
+                            {/* Players List */}
+                            {players.length === 0 ? (
+                                <p className="text-gray-500 text-sm italic">No players added yet</p>
+                            ) : (
+                                <div className="space-y-1">
+                                    {players.map((playerEmail) => (
+                                        <div
+                                            key={playerEmail}
+                                            className="flex items-center justify-between p-2 bg-slate-700/50 border border-slate-600"
+                                        >
+                                            <span className="text-white text-sm truncate">{playerEmail}</span>
+                                            <Button
+                                                onClick={() => removePlayer(playerEmail)}
+                                                size="icon"
+                                                variant="ghost"
+                                                className="w-6 h-6 text-red-400 hover:text-red-300 hover:bg-red-900/30"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+
+                {/* Add Player Dialog */}
+                <Dialog open={showAddPlayerForm} onOpenChange={setShowAddPlayerForm}>
+                    <DialogContent className="max-w-md">
+                        <form onSubmit={(e) => { e.preventDefault(); addPlayer(); }}>
+                            <DialogHeader>
+                                <DialogTitle>Add Player</DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                    <Label>Email</Label>
+                                    <Input
+                                        type="email"
+                                        value={newPlayerEmail}
+                                        onChange={(e) => setNewPlayerEmail(e.target.value)}
+                                        placeholder="player@example.com"
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter className="gap-2">
+                                <Button
+                                    type="button"
+                                    onClick={() => setShowAddPlayerForm(false)}
+                                    variant="outline"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit">
+                                    <Check className="w-4 h-4" />
+                                    Add
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Add Entity Dialog */}
                 <Dialog open={showAddForm} onOpenChange={setShowAddForm}>

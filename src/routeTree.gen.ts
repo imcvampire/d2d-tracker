@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CombatIndexRouteImport } from './routes/combat.index'
 import { Route as CombatDemoRouteImport } from './routes/combat.demo'
 import { Route as CombatIdRouteImport } from './routes/combat.$id'
 
@@ -18,43 +19,54 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CombatIndexRoute = CombatIndexRouteImport.update({
+  id: '/combat/',
+  path: '/combat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CombatDemoRoute = CombatDemoRouteImport.update({
-  id: '/demo',
-  path: '/demo',
-  getParentRoute: () => CombatRoute,
+  id: '/combat/demo',
+  path: '/combat/demo',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const CombatIdRoute = CombatIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => CombatRoute,
+  id: '/combat/$id',
+  path: '/combat/$id',
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/combat/$id': typeof CombatIdRoute
   '/combat/demo': typeof CombatDemoRoute
+  '/combat': typeof CombatIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/combat/$id': typeof CombatIdRoute
   '/combat/demo': typeof CombatDemoRoute
+  '/combat': typeof CombatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/combat/$id': typeof CombatIdRoute
   '/combat/demo': typeof CombatDemoRoute
+  '/combat/': typeof CombatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/combat/$id' | '/combat/demo'
+  fullPaths: '/' | '/combat/$id' | '/combat/demo' | '/combat'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/combat/$id' | '/combat/demo'
-  id: '__root__' | '/' | '/combat/$id' | '/combat/demo'
+  to: '/' | '/combat/$id' | '/combat/demo' | '/combat'
+  id: '__root__' | '/' | '/combat/$id' | '/combat/demo' | '/combat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CombatIdRoute: typeof CombatIdRoute
+  CombatDemoRoute: typeof CombatDemoRoute
+  CombatIndexRoute: typeof CombatIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -66,25 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/combat/': {
+      id: '/combat/'
+      path: '/combat'
+      fullPath: '/combat'
+      preLoaderRoute: typeof CombatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/combat/demo': {
       id: '/combat/demo'
-      path: '/demo'
+      path: '/combat/demo'
       fullPath: '/combat/demo'
       preLoaderRoute: typeof CombatDemoRouteImport
-      parentRoute: typeof CombatRoute
+      parentRoute: typeof rootRouteImport
     }
     '/combat/$id': {
       id: '/combat/$id'
-      path: '/$id'
+      path: '/combat/$id'
       fullPath: '/combat/$id'
       preLoaderRoute: typeof CombatIdRouteImport
-      parentRoute: typeof CombatRoute
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CombatIdRoute: CombatIdRoute,
+  CombatDemoRoute: CombatDemoRoute,
+  CombatIndexRoute: CombatIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -15,7 +15,7 @@ const config = defineConfig({
     }),
     tailwindcss(),
     tanstackStart(),
-    nitro(),
+    // nitro(),
     viteReact({
       babel: {
         plugins: ['babel-plugin-react-compiler'],
