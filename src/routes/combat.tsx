@@ -219,7 +219,7 @@ function CombatTracker() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-3 sm:p-6">
         {/* Round Counter & Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 bg-slate-800/60 border-2 border-slate-600 p-3 sm:p-4">
+        <div className="sticky top-0 z-30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 bg-slate-800/95 backdrop-blur-sm border-2 border-slate-600 p-3 sm:p-4">
           <div className="flex items-center gap-4 sm:gap-6">
             <div className="text-center">
               <div className="text-xs text-amber-200/70 uppercase tracking-wider mb-1">Round</div>
