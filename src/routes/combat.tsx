@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
-import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull, Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/8bit/dialog'
+import { Kbd } from '@/components/ui/8bit/kbd'
 
 export const Route = createFileRoute('/combat')({ component: CombatTracker })
 
@@ -80,7 +81,7 @@ function CombatTracker() {
 
   const sortedEntities = [...entities].sort((a, b) => b.initiative - a.initiative)
 
-  const nextTurn = () => {
+  const nextTurn = useCallback(() => {
     if (sortedEntities.length === 0) return
     const nextIndex = currentTurnIndex + 1
     if (nextIndex >= sortedEntities.length) {
@@ -89,9 +90,9 @@ function CombatTracker() {
     } else {
       setCurrentTurnIndex(nextIndex)
     }
-  }
+  }, [sortedEntities.length, currentTurnIndex])
 
-  const resetCombat = () => {
+  const resetCombat = useCallback(() => {
     setCurrentTurnIndex(0)
     setCurrentRound(1)
     // Clear statuses but keep current HP
@@ -99,7 +100,11 @@ function CombatTracker() {
       ...e,
       statuses: [],
     })))
-  }
+  }, [entities])
+
+  const openAddForm = useCallback(() => {
+    setShowAddForm(true)
+  }, [])
 
   const addEntity = () => {
     if (!newEntity.name.trim()) return
@@ -111,6 +116,36 @@ function CombatTracker() {
     setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [] })
     setShowAddForm(false)
   }
+
+  // Keyboard hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger hotkeys when typing in inputs or when dialog is open
+      const target = e.target as HTMLElement
+      const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+
+      if (isInputField) return
+
+      switch (e.key.toLowerCase()) {
+        case 'n':
+        case ' ': // Space
+          e.preventDefault()
+          nextTurn()
+          break
+        case 'r':
+          e.preventDefault()
+          resetCombat()
+          break
+        case 'a':
+          e.preventDefault()
+          openAddForm()
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [nextTurn, resetCombat, openAddForm])
 
   const deleteEntity = (id: string) => {
     setEntities(entities.filter((e) => e.id !== id))
@@ -166,7 +201,7 @@ function CombatTracker() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto p-6">
         {/* Round Counter & Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-slate-800/60 border-2 border-slate-600 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4 bg-slate-800/60 border-2 border-slate-600 p-4">
           <div className="flex items-center gap-6">
             <div className="text-center">
               <div className="text-xs text-amber-200/70 uppercase tracking-wider mb-1">Round</div>
@@ -189,6 +224,7 @@ function CombatTracker() {
             >
               <SkipForward className="w-5 h-5" />
               Next Turn
+              <Kbd className="ml-1.5">N</Kbd>
             </Button>
             <Button
               onClick={resetCombat}
@@ -196,12 +232,14 @@ function CombatTracker() {
             >
               <RotateCcw className="w-4 h-4" />
               Reset
+              <Kbd className="ml-1.5">R</Kbd>
             </Button>
             <Button
-              onClick={() => setShowAddForm(true)}
+              onClick={openAddForm}
             >
               <Plus className="w-5 h-5" />
               Add
+              <Kbd className="ml-1.5">A</Kbd>
             </Button>
           </div>
         </div>
