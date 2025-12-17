@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, forwardRef } from 'react'
 import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
@@ -80,6 +80,24 @@ function CombatTracker() {
   })
 
   const sortedEntities = [...entities].sort((a, b) => b.initiative - a.initiative)
+
+  // Refs to track entity card elements for scrolling
+  const entityRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  // Scroll active entity into view when turn changes
+  useEffect(() => {
+    if (sortedEntities.length === 0) return
+    const activeEntity = sortedEntities[currentTurnIndex]
+    if (!activeEntity) return
+
+    const element = entityRefs.current.get(activeEntity.id)
+    if (element) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+    }
+  }, [currentTurnIndex, sortedEntities])
 
   const nextTurn = useCallback(() => {
     if (sortedEntities.length === 0) return
@@ -348,6 +366,13 @@ function CombatTracker() {
             sortedEntities.map((entity, index) => (
               <EntityCard
                 key={entity.id}
+                ref={(el) => {
+                  if (el) {
+                    entityRefs.current.set(entity.id, el)
+                  } else {
+                    entityRefs.current.delete(entity.id)
+                  }
+                }}
                 entity={entity}
                 isActive={index === currentTurnIndex}
                 isEditing={editingId === entity.id}
@@ -376,16 +401,19 @@ interface EntityCardProps {
   getHealthColor: (health: number, maxHealth: number) => string
 }
 
-function EntityCard({
-  entity,
-  isActive,
-  isEditing,
-  onEdit,
-  onDelete,
-  onUpdate,
-  onToggleStatus,
-  getHealthColor,
-}: EntityCardProps) {
+const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCard(
+  {
+    entity,
+    isActive,
+    isEditing,
+    onEdit,
+    onDelete,
+    onUpdate,
+    onToggleStatus,
+    getHealthColor,
+  },
+  ref
+) {
   const [customAmount, setCustomAmount] = useState<number>(2)
   const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
   const isDead = entity.health <= 0
@@ -402,6 +430,7 @@ function EntityCard({
 
   return (
     <div
+      ref={ref}
       className={`relative border-4 transition-all duration-300 ${isDead
         ? 'bg-gray-900/80 border-gray-700 grayscale'
         : isActive
@@ -520,71 +549,67 @@ function EntityCard({
 
               {/* Heal/Damage Buttons */}
               {!isEditing && (
-                <div className="mt-2 space-y-2">
-                  {/* Quick buttons row */}
-                  <div className="grid grid-cols-4 gap-1 sm:gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDamage(1)}
-                      className="text-xs sm:text-sm"
-                    >
-                      <Minus className="w-3 h-3" />
-                      1
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDamage(5)}
-                      className="text-xs sm:text-sm"
-                    >
-                      <Minus className="w-3 h-3" />
-                      5
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleHeal(1)}
-                      className="text-xs sm:text-sm"
-                    >
-                      <Plus className="w-3 h-3" />
-                      1
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleHeal(5)}
-                      className="text-xs sm:text-sm"
-                    >
-                      <Plus className="w-3 h-3" />
-                      5
-                    </Button>
-                  </div>
-                  {/* Custom amount row */}
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDamage(customAmount)}
-                      className="shrink-0"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <Input
-                      type="number"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full sm:w-20 text-center"
-                      min={1}
-                    />
-                    <Button
-                      size="sm"
-                      onClick={() => handleHeal(customAmount)}
-                      className="shrink-0"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
+                  {/* Quick buttons */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDamage(1)}
+                    className="text-xs sm:text-sm"
+                  >
+                    <Minus className="w-3 h-3" />
+                    1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDamage(5)}
+                    className="text-xs sm:text-sm"
+                  >
+                    <Minus className="w-3 h-3" />
+                    5
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleHeal(1)}
+                    className="text-xs sm:text-sm"
+                  >
+                    <Plus className="w-3 h-3" />
+                    1
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleHeal(5)}
+                    className="text-xs sm:text-sm"
+                  >
+                    <Plus className="w-3 h-3" />
+                    5
+                  </Button>
+                  {/* Custom amount */}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDamage(customAmount)}
+                    className="shrink-0"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </Button>
+                  <Input
+                    type="number"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 sm:w-20 text-center"
+                    min={1}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => handleHeal(customAmount)}
+                    className="shrink-0"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </Button>
                 </div>
               )}
             </div>
@@ -637,4 +662,4 @@ function EntityCard({
       </div>
     </div>
   )
-}
+})
