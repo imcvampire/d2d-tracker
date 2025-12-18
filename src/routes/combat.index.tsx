@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Swords, Shield, Plus, Crown, Users, Calendar, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Badge } from '@/components/ui/8bit/badge'
@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { db } from '@/lib/firebase'
 import { collection, query, where, or, Query } from 'firebase/firestore'
 import { useCollection } from 'react-firebase-hooks/firestore'
-import { v7 as uuidv7 } from 'uuid'
+import { createCombat } from '@/lib/combat'
 
 export const Route = createFileRoute('/combat/')({ component: ProtectedCombatList })
 
@@ -55,6 +55,7 @@ function CombatList() {
     }, [user?.email])
 
     const [snapshot, loading] = useCollection(combatsRef)
+    const [isCreating, setIsCreating] = useState(false)
     const combats = useMemo(() => {
         if (!snapshot) return []
         return snapshot.docs.map(doc => ({
@@ -63,9 +64,15 @@ function CombatList() {
         }))
     }, [snapshot])
 
-    const handleStartNewCombat = () => {
-        const combatId = uuidv7()
-        navigate({ to: '/combat/$id', params: { id: combatId } })
+    const handleStartNewCombat = async () => {
+        if (!user?.email || isCreating) return
+        setIsCreating(true)
+        try {
+            const combatId = await createCombat(user.email)
+            navigate({ to: '/combat/$id', params: { id: combatId } })
+        } finally {
+            setIsCreating(false)
+        }
     }
 
     const formatDate = (timestamp: number) => {
@@ -130,9 +137,13 @@ function CombatList() {
             <div className="max-w-4xl mx-auto p-3 sm:p-6">
                 {/* New Combat Button */}
                 <div className="mb-6">
-                    <Button onClick={handleStartNewCombat} className="w-full sm:w-auto">
-                        <Plus className="w-5 h-5" />
-                        Start New Combat
+                    <Button onClick={handleStartNewCombat} disabled={isCreating} className="w-full sm:w-auto">
+                        {isCreating ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <Plus className="w-5 h-5" />
+                        )}
+                        {isCreating ? 'Creating...' : 'Start New Combat'}
                     </Button>
                 </div>
 

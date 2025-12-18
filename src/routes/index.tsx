@@ -1,16 +1,26 @@
 import { Button } from '@/components/ui/8bit/button'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { Swords, Play } from 'lucide-react'
-import { v7 as uuidv7 } from 'uuid'
+import { Swords, Play, Loader2 } from 'lucide-react'
+import { createCombat } from '@/lib/combat'
+import { useAuth } from '@/hooks/useAuth'
+import { useState } from 'react'
 
 export const Route = createFileRoute('/')({ component: App })
 
 function App() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const [isCreating, setIsCreating] = useState(false)
 
-  const handleStartCombat = () => {
-    const combatId = uuidv7()
-    navigate({ to: '/combat/$id', params: { id: combatId } })
+  const handleStartCombat = async () => {
+    if (!user?.email || isCreating) return
+    setIsCreating(true)
+    try {
+      const combatId = await createCombat(user.email)
+      navigate({ to: '/combat/$id', params: { id: combatId } })
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   return (
@@ -21,7 +31,7 @@ function App() {
           <div className="flex items-center justify-center gap-6 mb-6">
             <h1 className="text-6xl md:text-7xl font-black text-white [letter-spacing:-0.08em]">
               <span className="text-gray-300">D2D</span>{' '}
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+              <span className="bg-linear-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
                 Toolbelt
               </span>
             </h1>
@@ -33,9 +43,9 @@ function App() {
             A collection of tools for Dungeons & Dragons
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button onClick={handleStartCombat} className="flex items-center gap-2">
-              <Swords size={20} />
-              Start Combat Tracker
+            <Button onClick={handleStartCombat} disabled={isCreating || !user} className="flex items-center gap-2">
+              {isCreating ? <Loader2 size={20} className="animate-spin" /> : <Swords size={20} />}
+              {isCreating ? 'Creating...' : 'Start Combat Tracker'}
             </Button>
             <Button asChild variant="outline">
               <Link to="/combat/demo" className="flex items-center gap-2">
