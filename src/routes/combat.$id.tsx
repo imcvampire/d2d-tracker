@@ -4,8 +4,8 @@ import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward,
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
-import { Checkbox } from '@/components/ui/8bit/checkbox'
 import { Badge } from '@/components/ui/8bit/badge'
+import { Toggle } from '@/components/ui/8bit/toggle'
 import EnemyHealthDisplay from '@/components/ui/8bit/enemy-health-display'
 import HealthBar from '@/components/ui/8bit/health-bar'
 import { Switch } from '@/components/ui/8bit/switch'
@@ -94,6 +94,7 @@ function CombatTracker() {
         statuses: [],
         isNpc: false,
     })
+    const [newCustomStatus, setNewCustomStatus] = useState('')
 
     // Derived state from Firebase
     const entities = combatState?.entities ?? []
@@ -253,6 +254,13 @@ function CombatTracker() {
             ? entity.statuses.filter((s) => s !== status)
             : [...entity.statuses, status]
         updateEntity(entityId, { statuses: newStatuses })
+    }
+
+    const addCustomStatus = (entityId: string, status: string) => {
+        const entity = entities.find((e) => e.id === entityId)
+        if (!entity) return
+        if (entity.statuses.includes(status)) return
+        updateEntity(entityId, { statuses: [...entity.statuses, status] })
     }
 
     const toggleNewEntityStatus = (status: string) => {
@@ -555,22 +563,72 @@ function CombatTracker() {
 
                                 <div className="space-y-2">
                                     <Label>Statuses</Label>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                         {STATUS_OPTIONS.map((status) => (
-                                            <div key={status} className="flex items-center gap-2">
-                                                <Checkbox
-                                                    id={`new-status-${status}`}
-                                                    checked={newEntity.statuses.includes(status)}
-                                                    onCheckedChange={() => toggleNewEntityStatus(status)}
-                                                />
-                                                <Label
-                                                    htmlFor={`new-status-${status}`}
-                                                    className="cursor-pointer"
+                                            <Toggle
+                                                key={status}
+                                                pressed={newEntity.statuses.includes(status)}
+                                                onPressedChange={() => toggleNewEntityStatus(status)}
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs"
+                                            >
+                                                {status}
+                                            </Toggle>
+                                        ))}
+                                        {/* Show custom statuses that aren't in STATUS_OPTIONS */}
+                                        {newEntity.statuses
+                                            .filter((s) => !STATUS_OPTIONS.includes(s))
+                                            .map((status) => (
+                                                <Toggle
+                                                    key={status}
+                                                    pressed={true}
+                                                    onPressedChange={() => toggleNewEntityStatus(status)}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-xs bg-purple-600/50"
                                                 >
                                                     {status}
-                                                </Label>
-                                            </div>
-                                        ))}
+                                                </Toggle>
+                                            ))}
+                                    </div>
+                                    {/* Custom status input */}
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <Input
+                                            type="text"
+                                            value={newCustomStatus}
+                                            onChange={(e) => setNewCustomStatus(e.target.value)}
+                                            placeholder="Custom status..."
+                                            className="flex-1"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && newCustomStatus.trim()) {
+                                                    e.preventDefault()
+                                                    if (!newEntity.statuses.includes(newCustomStatus.trim())) {
+                                                        setNewEntity({
+                                                            ...newEntity,
+                                                            statuses: [...newEntity.statuses, newCustomStatus.trim()]
+                                                        })
+                                                    }
+                                                    setNewCustomStatus('')
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                if (newCustomStatus.trim() && !newEntity.statuses.includes(newCustomStatus.trim())) {
+                                                    setNewEntity({
+                                                        ...newEntity,
+                                                        statuses: [...newEntity.statuses, newCustomStatus.trim()]
+                                                    })
+                                                    setNewCustomStatus('')
+                                                }
+                                            }}
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -618,6 +676,7 @@ function CombatTracker() {
                                 onDelete={() => deleteEntity(entity.id)}
                                 onUpdate={(updates) => updateEntity(entity.id, updates)}
                                 onToggleStatus={(status) => toggleStatus(entity.id, status)}
+                                onAddCustomStatus={(status) => addCustomStatus(entity.id, status)}
                                 isDungeonMaster={isDungeonMaster}
                                 isPlayer={isPlayer}
                             />
@@ -637,6 +696,7 @@ interface EntityCardProps {
     onDelete: () => void
     onUpdate: (updates: Partial<Entity>) => void
     onToggleStatus: (status: string) => void
+    onAddCustomStatus: (status: string) => void
     isDungeonMaster: boolean
     isPlayer: boolean
 }
@@ -650,6 +710,7 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
         onDelete,
         onUpdate,
         onToggleStatus,
+        onAddCustomStatus,
         isDungeonMaster: _isDungeonMaster,
         isPlayer,
     },
@@ -658,6 +719,7 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
     // _isDungeonMaster available for future DM-specific features
     void _isDungeonMaster
     const [customAmount, setCustomAmount] = useState<number>(2)
+    const [customStatusInput, setCustomStatusInput] = useState('')
     const isDead = entity.health <= 0
     const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
 
@@ -913,34 +975,67 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                         )}
 
                         {/* Statuses */}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {isEditing ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
-                                    {STATUS_OPTIONS.map((status) => (
-                                        <div key={status} className="flex items-center gap-2">
-                                            <Checkbox
-                                                id={`${entity.id}-status-${status}`}
-                                                checked={entity.statuses.includes(status)}
-                                                onCheckedChange={() => onToggleStatus(status)}
-                                            />
-                                            <Label
-                                                htmlFor={`${entity.id}-status-${status}`}
-                                                className="cursor-pointer"
-                                            >
-                                                {status}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : entity.statuses.length > 0 ? (
-                                entity.statuses.map((status) => (
-                                    <Badge key={status}>
+                        <div className="mt-3 space-y-2">
+                            <div className="flex flex-wrap gap-1.5">
+                                {STATUS_OPTIONS.map((status) => (
+                                    <Toggle
+                                        key={status}
+                                        pressed={entity.statuses.includes(status)}
+                                        onPressedChange={() => onToggleStatus(status)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-[10px] sm:text-xs h-7 px-2"
+                                    >
                                         {status}
-                                    </Badge>
-                                ))
-                            ) : (
-                                <span className="text-xs text-gray-500 italic">No status effects</span>
-                            )}
+                                    </Toggle>
+                                ))}
+                                {/* Show custom statuses that aren't in STATUS_OPTIONS */}
+                                {entity.statuses
+                                    .filter((s) => !STATUS_OPTIONS.includes(s))
+                                    .map((status) => (
+                                        <Toggle
+                                            key={status}
+                                            pressed={true}
+                                            onPressedChange={() => onToggleStatus(status)}
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-[10px] sm:text-xs h-7 px-2 bg-purple-600/50 data-[state=on]:bg-purple-600"
+                                        >
+                                            {status}
+                                        </Toggle>
+                                    ))}
+                            </div>
+                            {/* Custom status input */}
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="text"
+                                    value={customStatusInput}
+                                    onChange={(e) => setCustomStatusInput(e.target.value)}
+                                    placeholder="Custom status..."
+                                    className="flex-1 h-8 text-xs"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && customStatusInput.trim()) {
+                                            e.preventDefault()
+                                            onAddCustomStatus(customStatusInput.trim())
+                                            setCustomStatusInput('')
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8"
+                                    onClick={() => {
+                                        if (customStatusInput.trim()) {
+                                            onAddCustomStatus(customStatusInput.trim())
+                                            setCustomStatusInput('')
+                                        }
+                                    }}
+                                >
+                                    <Plus className="w-3 h-3" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
