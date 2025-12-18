@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import posthog from 'posthog-js'
+import { PostHogProvider } from 'posthog-js/react'
 
 import Header from '../components/Header'
 import { AuthProvider } from '../hooks/useAuth'
@@ -34,27 +37,38 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
+      api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+      defaults: '2025-05-24',
+      capture_exceptions: true,
+      debug: import.meta.env.MODE === 'development',
+    })
+  }, [])
+
   return (
     <html lang="en" className="dark retro">
       <head>
         <HeadContent />
       </head>
       <body>
-        <AuthProvider>
-          <Header />
-          {children}
-          <TanStackDevtools
-            config={{
-              position: 'bottom-right',
-            }}
-            plugins={[
-              {
-                name: 'Tanstack Router',
-                render: <TanStackRouterDevtoolsPanel />,
-              },
-            ]}
-          />
-        </AuthProvider>
+        <PostHogProvider client={posthog}>
+          <AuthProvider>
+            <Header />
+            {children}
+            <TanStackDevtools
+              config={{
+                position: 'bottom-right',
+              }}
+              plugins={[
+                {
+                  name: 'Tanstack Router',
+                  render: <TanStackRouterDevtoolsPanel />,
+                },
+              ]}
+            />
+          </AuthProvider>
+        </PostHogProvider>
         <Scripts />
       </body>
     </html>
