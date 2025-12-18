@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
 import { Checkbox } from '@/components/ui/8bit/checkbox'
 import { Badge } from '@/components/ui/8bit/badge'
-import { Progress } from '@/components/ui/8bit/progress'
+import EnemyHealthDisplay from '@/components/ui/8bit/enemy-health-display'
+import HealthBar from '@/components/ui/8bit/health-bar'
 import { Switch } from '@/components/ui/8bit/switch'
 import {
     Dialog,
@@ -273,14 +274,6 @@ function CombatTracker() {
         updateCombat({ players: players.filter((p) => p !== email) })
     }
 
-    const getHealthColor = (health: number, maxHealth: number) => {
-        const ratio = health / maxHealth
-        if (ratio > 0.6) return 'bg-emerald-500'
-        if (ratio > 0.3) return 'bg-amber-500'
-        return 'bg-red-500'
-    }
-
-
     if (loading) {
         return (
             <div className="min-h-screen bg-linear-to-b from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center">
@@ -351,7 +344,7 @@ function CombatTracker() {
                         {sortedEntities.length > 0 && (
                             <div className="text-center border-l border-slate-600 pl-4 sm:pl-6">
                                 <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Turn</div>
-                                <div className="text-base sm:text-lg font-bold text-white truncate max-w-[120px] sm:max-w-[150px]">
+                                <div className="text-base sm:text-lg font-bold text-white truncate max-w-[150px] sm:max-w-[200px]">
                                     {sortedEntities[currentTurnIndex]?.name || '—'}
                                 </div>
                             </div>
@@ -625,7 +618,6 @@ function CombatTracker() {
                                 onDelete={() => deleteEntity(entity.id)}
                                 onUpdate={(updates) => updateEntity(entity.id, updates)}
                                 onToggleStatus={(status) => toggleStatus(entity.id, status)}
-                                getHealthColor={getHealthColor}
                                 isDungeonMaster={isDungeonMaster}
                                 isPlayer={isPlayer}
                             />
@@ -645,7 +637,6 @@ interface EntityCardProps {
     onDelete: () => void
     onUpdate: (updates: Partial<Entity>) => void
     onToggleStatus: (status: string) => void
-    getHealthColor: (health: number, maxHealth: number) => string
     isDungeonMaster: boolean
     isPlayer: boolean
 }
@@ -659,7 +650,6 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
         onDelete,
         onUpdate,
         onToggleStatus,
-        getHealthColor,
         isDungeonMaster: _isDungeonMaster,
         isPlayer,
     },
@@ -668,8 +658,8 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
     // _isDungeonMaster available for future DM-specific features
     void _isDungeonMaster
     const [customAmount, setCustomAmount] = useState<number>(2)
-    const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
     const isDead = entity.health <= 0
+    const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
 
     // Calculate HP lost for players viewing NPCs
     const hpLost = entity.maxHealth - entity.health
@@ -738,7 +728,7 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
             )}
 
             {/* Floating Action Buttons - Hide for players viewing NPCs */}
-            {!shouldHideHpDetails && (
+            {_isDungeonMaster && (
                 <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1 sm:gap-2 z-20">
                     <Button
                         onClick={onEdit}
@@ -785,9 +775,9 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
 
                         {/* Health Bar */}
                         <div className="mt-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
-                                {isEditing ? (
+                            {isEditing ? (
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
                                     <div className="flex items-center gap-1">
                                         <Input
                                             type="number"
@@ -803,28 +793,43 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                                             className="w-20"
                                         />
                                     </div>
-                                ) : shouldHideHpDetails ? (
-                                    <span className={`text-sm text-amber-300`}>
-                                        HP Lost: {hpLost}
-                                    </span>
-                                ) : (
-                                    <span className={`text-sm ${isDead ? 'text-gray-500' : 'text-gray-300'}`}>
-                                        {entity.health} / {entity.maxHealth}
-                                    </span>
-                                )}
-                            </div>
-                            {/* Hide health bar progress for players viewing NPCs */}
-                            {shouldHideHpDetails ? (
-                                <div className="h-4 bg-slate-700/50 border border-slate-600 flex items-center justify-center">
-                                    <span className="text-[10px] text-gray-400 tracking-wide">???</span>
                                 </div>
-                            ) : (
-                                <Progress
-                                    value={healthPercent}
-                                    variant="retro"
-                                    progressBg={isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}
-                                    className="h-4"
+                            ) : shouldHideHpDetails ? (
+                                <>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
+                                        <span className="text-sm text-amber-300">
+                                            HP Lost: {hpLost}
+                                        </span>
+                                    </div>
+                                    <div className="h-4 bg-slate-700/50 border border-slate-600 flex items-center justify-center">
+                                        <span className="text-[10px] text-gray-400 tracking-wide">???</span>
+                                    </div>
+                                </>
+                            ) : entity.isNpc ? (
+                                <EnemyHealthDisplay
+                                    enemyName=""
+                                    showLevel={false}
+                                    showHealthText={true}
+                                    currentHealth={entity.health}
+                                    maxHealth={entity.maxHealth}
+                                    healthBarColor={isDead ? 'bg-gray-600' : undefined}
                                 />
+                            ) : (
+                                <>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
+                                        <span className={`text-sm ${isDead ? 'text-gray-500' : 'text-gray-300'}`}>
+                                            {entity.health} / {entity.maxHealth}
+                                        </span>
+                                    </div>
+                                    <HealthBar
+                                        value={healthPercent}
+                                        variant="retro"
+                                        className="h-4"
+                                        props={isDead ? { progressBg: 'bg-gray-600' } : undefined}
+                                    />
+                                </>
                             )}
 
                             {/* Heal/Damage Buttons - Hide for players viewing NPCs */}
