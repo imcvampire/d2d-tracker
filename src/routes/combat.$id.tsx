@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect, useCallback, useRef, forwardRef, useMemo } from 'react'
-import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull, Loader2, Users, Crown, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward, RotateCcw, Skull, Loader2, Users, Crown, X, ChevronDown, ChevronRight, AlertTriangle, Home } from 'lucide-react'
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/8bit/dialog'
 import { Kbd } from '@/components/ui/8bit/kbd'
 import { AuthGuard } from '@/components/AuthGuard'
-import { useAuth } from '@/hooks/useAuth'
 import { db } from '@/lib/firebase'
 import { doc, setDoc, DocumentReference } from 'firebase/firestore'
 import { useDocumentData } from 'react-firebase-hooks/firestore'
@@ -67,7 +66,6 @@ const STATUS_OPTIONS = [
 
 function CombatTracker() {
     const { id: combatId } = Route.useParams()
-    const { user } = useAuth()
     const combatRef = useMemo(() => doc(db, 'combats', combatId) as DocumentReference<CombatState>, [combatId])
 
     // Firebase is the source of truth - useDocumentData handles real-time subscription
@@ -112,23 +110,6 @@ function CombatTracker() {
             Sentry.captureException(err)
         }
     }, [combatRef])
-
-    // Create document if it doesn't exist (runs once when loading completes and no data)
-    useEffect(() => {
-        if (!loading && !combatState && !error && user) {
-            console.log('Creating new combat session:', combatId)
-            const newState: CombatState = {
-                entities: [],
-                currentTurnIndex: 0,
-                currentRound: 1,
-                dungeonMaster: user.email ?? '',
-                players: [],
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            }
-            setDoc(combatRef, newState)
-        }
-    }, [loading, combatState, error, combatId, combatRef, user])
 
     // Report errors to Sentry
     useEffect(() => {
@@ -297,6 +278,34 @@ function CombatTracker() {
                 <div className="text-center">
                     <Loader2 className="w-12 h-12 text-amber-400 animate-spin mx-auto mb-4" />
                     <p className="text-amber-200/70 text-sm tracking-widest uppercase">Loading Combat...</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (error || !combatState) {
+        return (
+            <div className="min-h-screen bg-linear-to-b from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center">
+                <div className="text-center max-w-md mx-auto p-6">
+                    <AlertTriangle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                    <h1 className="text-2xl font-bold text-white mb-2 retro">Combat Not Found</h1>
+                    <p className="text-gray-400 mb-6">
+                        {error ? 'An error occurred while loading this combat.' : 'This combat session does not exist or has been deleted.'}
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <Button asChild>
+                            <Link to="/combat" className="flex items-center gap-2">
+                                <Swords className="w-4 h-4" />
+                                View My Combats
+                            </Link>
+                        </Button>
+                        <Button asChild variant="outline">
+                            <Link to="/" className="flex items-center gap-2">
+                                <Home className="w-4 h-4" />
+                                Go Home
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
             </div>
         )
