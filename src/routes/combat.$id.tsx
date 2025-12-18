@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/8bit/label'
 import { Checkbox } from '@/components/ui/8bit/checkbox'
 import { Badge } from '@/components/ui/8bit/badge'
 import { Progress } from '@/components/ui/8bit/progress'
+import { Switch } from '@/components/ui/8bit/switch'
 import {
     Dialog,
     DialogContent,
@@ -16,6 +17,7 @@ import {
 } from '@/components/ui/8bit/dialog'
 import { Kbd } from '@/components/ui/8bit/kbd'
 import { AuthGuard } from '@/components/AuthGuard'
+import { useAuth } from '@/hooks/useAuth'
 import { db } from '@/lib/firebase'
 import { doc, setDoc, DocumentReference } from 'firebase/firestore'
 import { useDocumentData } from 'react-firebase-hooks/firestore'
@@ -39,6 +41,7 @@ interface Entity {
     maxHealth: number
     initiative: number
     statuses: string[]
+    isNpc?: boolean
 }
 
 interface CombatState {
@@ -67,9 +70,14 @@ const STATUS_OPTIONS = [
 function CombatTracker() {
     const { id: combatId } = Route.useParams()
     const combatRef = useMemo(() => doc(db, 'combats', combatId) as DocumentReference<CombatState>, [combatId])
+    const { user } = useAuth()
 
     // Firebase is the source of truth - useDocumentData handles real-time subscription
     const [combatState, loading, error] = useDocumentData(combatRef)
+
+    // Check if current user is the dungeon master
+    const isDungeonMaster = user?.email === combatState?.dungeonMaster
+    const isPlayer = !isDungeonMaster && (combatState?.players?.includes(user?.email ?? '') ?? false)
 
     // Local UI state (not synced to Firebase)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -83,6 +91,7 @@ function CombatTracker() {
         maxHealth: 10,
         initiative: 10,
         statuses: [],
+        isNpc: false,
     })
 
     // Derived state from Firebase
@@ -192,7 +201,7 @@ function CombatTracker() {
             id: Date.now().toString(),
         }
         updateCombat({ entities: [...entities, entity] })
-        setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [] })
+        setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [], isNpc: false })
         setShowAddForm(false)
     }
 
@@ -491,6 +500,22 @@ function CombatTracker() {
                             </DialogHeader>
 
                             <div className="space-y-4 py-4">
+                                {/* Entity Type Toggle */}
+                                <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-slate-600">
+                                    <div className="flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-emerald-400" />
+                                        <Label className="cursor-pointer">Player</Label>
+                                    </div>
+                                    <Switch
+                                        checked={newEntity.isNpc}
+                                        onCheckedChange={(checked) => setNewEntity({ ...newEntity, isNpc: checked })}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Label className="cursor-pointer">NPC</Label>
+                                        <Skull className="w-4 h-4 text-red-400" />
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label>Name</Label>
                                     <Input
@@ -601,6 +626,8 @@ function CombatTracker() {
                                 onUpdate={(updates) => updateEntity(entity.id, updates)}
                                 onToggleStatus={(status) => toggleStatus(entity.id, status)}
                                 getHealthColor={getHealthColor}
+                                isDungeonMaster={isDungeonMaster}
+                                isPlayer={isPlayer}
                             />
                         ))
                     )}
@@ -619,6 +646,8 @@ interface EntityCardProps {
     onUpdate: (updates: Partial<Entity>) => void
     onToggleStatus: (status: string) => void
     getHealthColor: (health: number, maxHealth: number) => string
+    isDungeonMaster: boolean
+    isPlayer: boolean
 }
 
 const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCard(
@@ -631,12 +660,23 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
         onUpdate,
         onToggleStatus,
         getHealthColor,
+        isDungeonMaster: _isDungeonMaster,
+        isPlayer,
     },
     ref
 ) {
+    // _isDungeonMaster available for future DM-specific features
+    void _isDungeonMaster
     const [customAmount, setCustomAmount] = useState<number>(2)
     const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
     const isDead = entity.health <= 0
+
+    // Calculate HP lost for players viewing NPCs
+    const hpLost = entity.maxHealth - entity.health
+
+    // Check if this entity's HP should be hidden from the current player
+    // Players can only see HP lost for NPCs, not the exact HP values
+    const shouldHideHpDetails = isPlayer && entity.isNpc && !isDead
 
     const handleHeal = (amount: number) => {
         const newHealth = Math.min(entity.health + amount, entity.maxHealth)
@@ -697,25 +737,27 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                 </Badge>
             )}
 
-            {/* Floating Action Buttons */}
-            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1 sm:gap-2 z-20">
-                <Button
-                    onClick={onEdit}
-                    size="icon"
-                    variant={isEditing ? 'default' : 'outline'}
-                    className="w-7 h-7 sm:w-8 sm:h-8"
-                >
-                    {isEditing ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
-                </Button>
-                <Button
-                    onClick={onDelete}
-                    size="icon"
-                    variant="destructive"
-                    className="w-7 h-7 sm:w-8 sm:h-8"
-                >
-                    <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                </Button>
-            </div>
+            {/* Floating Action Buttons - Hide for players viewing NPCs */}
+            {!shouldHideHpDetails && (
+                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1 sm:gap-2 z-20">
+                    <Button
+                        onClick={onEdit}
+                        size="icon"
+                        variant={isEditing ? 'default' : 'outline'}
+                        className="w-7 h-7 sm:w-8 sm:h-8"
+                    >
+                        {isEditing ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+                    </Button>
+                    <Button
+                        onClick={onDelete}
+                        size="icon"
+                        variant="destructive"
+                        className="w-7 h-7 sm:w-8 sm:h-8"
+                    >
+                        <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </Button>
+                </div>
+            )}
 
             <div className={`p-3 sm:p-4 pl-10 sm:pl-12 ${isDead ? 'opacity-60' : ''}`}>
                 <div className="flex items-start">
@@ -729,9 +771,16 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                                 className="max-w-full sm:max-w-xs"
                             />
                         ) : (
-                            <h3 className={`text-lg sm:text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
-                                {entity.name}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className={`text-lg sm:text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
+                                    {entity.name}
+                                </h3>
+                                {entity.isNpc && (
+                                    <Badge variant="destructive" className="text-[10px] shrink-0">
+                                        NPC
+                                    </Badge>
+                                )}
+                            </div>
                         )}
 
                         {/* Health Bar */}
@@ -754,20 +803,31 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                                             className="w-20"
                                         />
                                     </div>
+                                ) : shouldHideHpDetails ? (
+                                    <span className={`text-sm text-amber-300`}>
+                                        HP Lost: {hpLost}
+                                    </span>
                                 ) : (
                                     <span className={`text-sm ${isDead ? 'text-gray-500' : 'text-gray-300'}`}>
                                         {entity.health} / {entity.maxHealth}
                                     </span>
                                 )}
                             </div>
-                            <Progress
-                                value={healthPercent}
-                                variant="retro"
-                                progressBg={isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}
-                                className="h-4"
-                            />
+                            {/* Hide health bar progress for players viewing NPCs */}
+                            {shouldHideHpDetails ? (
+                                <div className="h-4 bg-slate-700/50 border border-slate-600 flex items-center justify-center">
+                                    <span className="text-[10px] text-gray-400 tracking-wide">???</span>
+                                </div>
+                            ) : (
+                                <Progress
+                                    value={healthPercent}
+                                    variant="retro"
+                                    progressBg={isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}
+                                    className="h-4"
+                                />
+                            )}
 
-                            {/* Heal/Damage Buttons */}
+                            {/* Heal/Damage Buttons - Hide for players viewing NPCs */}
                             {!isEditing && (
                                 <div className="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
                                     {/* Quick buttons */}
