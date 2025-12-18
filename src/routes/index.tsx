@@ -1,17 +1,18 @@
 import { Button } from '@/components/ui/8bit/button'
-import { createFileRoute, Link } from '@tanstack/react-router'
-import {
-  Zap,
-  Server,
-  Route as RouteIcon,
-  Shield,
-  Waves,
-  Sparkles,
-} from 'lucide-react'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { Swords, Play } from 'lucide-react'
+import { v7 as uuidv7 } from 'uuid'
 
 export const Route = createFileRoute('/')({ component: App })
 
 function App() {
+  const navigate = useNavigate()
+
+  const handleStartCombat = () => {
+    const combatId = uuidv7()
+    navigate({ to: '/combat/$id', params: { id: combatId } })
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900">
       <section className="relative py-20 px-6 text-center overflow-hidden">
@@ -31,9 +32,16 @@ function App() {
           <p className="text-lg text-gray-400 max-w-3xl mx-auto mb-8">
             A collection of tools for Dungeons & Dragons
           </p>
-          <div className="flex flex-col items-center gap-4">
-            <Button asChild>
-              <Link to="/combat">Get Started</Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button onClick={handleStartCombat} className="flex items-center gap-2">
+              <Swords size={20} />
+              Start Combat Tracker
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/combat/demo" className="flex items-center gap-2">
+                <Play size={20} />
+                Try Demo
+              </Link>
             </Button>
           </div>
         </div>

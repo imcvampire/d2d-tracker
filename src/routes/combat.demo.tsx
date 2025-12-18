@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/8bit/dialog'
 import { Kbd } from '@/components/ui/8bit/kbd'
 
-export const Route = createFileRoute('/combat')({ component: CombatTracker })
+export const Route = createFileRoute('/combat/demo')({ component: CombatTracker })
 
 interface Entity {
   id: string
@@ -236,7 +236,7 @@ function CombatTracker() {
             <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-amber-400" />
           </div>
           <p className="text-amber-200/70 text-xs sm:text-sm tracking-widest uppercase">
-            Combat Tracker
+            Combat Tracker Demo
           </p>
         </div>
       </div>
