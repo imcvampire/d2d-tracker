@@ -4,9 +4,11 @@ import { Plus, Minus, Pencil, Trash2, Heart, Swords, Shield, Check, SkipForward,
 import { Button } from '@/components/ui/8bit/button'
 import { Input } from '@/components/ui/8bit/input'
 import { Label } from '@/components/ui/8bit/label'
-import { Checkbox } from '@/components/ui/8bit/checkbox'
 import { Badge } from '@/components/ui/8bit/badge'
-import { Progress } from '@/components/ui/8bit/progress'
+import { Toggle } from '@/components/ui/8bit/toggle'
+import EnemyHealthDisplay from '@/components/ui/8bit/enemy-health-display'
+import HealthBar from '@/components/ui/8bit/health-bar'
+import { Switch } from '@/components/ui/8bit/switch'
 import {
     Dialog,
     DialogContent,
@@ -16,6 +18,7 @@ import {
 } from '@/components/ui/8bit/dialog'
 import { Kbd } from '@/components/ui/8bit/kbd'
 import { AuthGuard } from '@/components/AuthGuard'
+import { useAuth } from '@/hooks/useAuth'
 import { db } from '@/lib/firebase'
 import { doc, setDoc, DocumentReference } from 'firebase/firestore'
 import { useDocumentData } from 'react-firebase-hooks/firestore'
@@ -39,6 +42,7 @@ interface Entity {
     maxHealth: number
     initiative: number
     statuses: string[]
+    isNpc?: boolean
 }
 
 interface CombatState {
@@ -67,9 +71,14 @@ const STATUS_OPTIONS = [
 function CombatTracker() {
     const { id: combatId } = Route.useParams()
     const combatRef = useMemo(() => doc(db, 'combats', combatId) as DocumentReference<CombatState>, [combatId])
+    const { user } = useAuth()
 
     // Firebase is the source of truth - useDocumentData handles real-time subscription
     const [combatState, loading, error] = useDocumentData(combatRef)
+
+    // Check if current user is the dungeon master
+    const isDungeonMaster = user?.email === combatState?.dungeonMaster
+    const isPlayer = !isDungeonMaster && (combatState?.players?.includes(user?.email ?? '') ?? false)
 
     // Local UI state (not synced to Firebase)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -83,7 +92,9 @@ function CombatTracker() {
         maxHealth: 10,
         initiative: 10,
         statuses: [],
+        isNpc: false,
     })
+    const [newCustomStatus, setNewCustomStatus] = useState('')
 
     // Derived state from Firebase
     const entities = combatState?.entities ?? []
@@ -192,7 +203,7 @@ function CombatTracker() {
             id: Date.now().toString(),
         }
         updateCombat({ entities: [...entities, entity] })
-        setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [] })
+        setNewEntity({ name: '', health: 10, maxHealth: 10, initiative: 10, statuses: [], isNpc: false })
         setShowAddForm(false)
     }
 
@@ -245,6 +256,13 @@ function CombatTracker() {
         updateEntity(entityId, { statuses: newStatuses })
     }
 
+    const addCustomStatus = (entityId: string, status: string) => {
+        const entity = entities.find((e) => e.id === entityId)
+        if (!entity) return
+        if (entity.statuses.includes(status)) return
+        updateEntity(entityId, { statuses: [...entity.statuses, status] })
+    }
+
     const toggleNewEntityStatus = (status: string) => {
         const newStatuses = newEntity.statuses.includes(status)
             ? newEntity.statuses.filter((s) => s !== status)
@@ -263,14 +281,6 @@ function CombatTracker() {
     const removePlayer = (email: string) => {
         updateCombat({ players: players.filter((p) => p !== email) })
     }
-
-    const getHealthColor = (health: number, maxHealth: number) => {
-        const ratio = health / maxHealth
-        if (ratio > 0.6) return 'bg-emerald-500'
-        if (ratio > 0.3) return 'bg-amber-500'
-        return 'bg-red-500'
-    }
-
 
     if (loading) {
         return (
@@ -342,7 +352,7 @@ function CombatTracker() {
                         {sortedEntities.length > 0 && (
                             <div className="text-center border-l border-slate-600 pl-4 sm:pl-6">
                                 <div className="text-xs text-gray-400 uppercase tracking-wider mb-1">Current Turn</div>
-                                <div className="text-base sm:text-lg font-bold text-white truncate max-w-[120px] sm:max-w-[150px]">
+                                <div className="text-base sm:text-lg font-bold text-white truncate max-w-[150px] sm:max-w-[200px]">
                                     {sortedEntities[currentTurnIndex]?.name || '—'}
                                 </div>
                             </div>
@@ -491,6 +501,22 @@ function CombatTracker() {
                             </DialogHeader>
 
                             <div className="space-y-4 py-4">
+                                {/* Entity Type Toggle */}
+                                <div className="flex items-center justify-between p-3 bg-slate-700/50 border border-slate-600">
+                                    <div className="flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-emerald-400" />
+                                        <Label className="cursor-pointer">Player</Label>
+                                    </div>
+                                    <Switch
+                                        checked={newEntity.isNpc}
+                                        onCheckedChange={(checked) => setNewEntity({ ...newEntity, isNpc: checked })}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Label className="cursor-pointer">NPC</Label>
+                                        <Skull className="w-4 h-4 text-red-400" />
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label>Name</Label>
                                     <Input
@@ -537,22 +563,72 @@ function CombatTracker() {
 
                                 <div className="space-y-2">
                                     <Label>Statuses</Label>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                         {STATUS_OPTIONS.map((status) => (
-                                            <div key={status} className="flex items-center gap-2">
-                                                <Checkbox
-                                                    id={`new-status-${status}`}
-                                                    checked={newEntity.statuses.includes(status)}
-                                                    onCheckedChange={() => toggleNewEntityStatus(status)}
-                                                />
-                                                <Label
-                                                    htmlFor={`new-status-${status}`}
-                                                    className="cursor-pointer"
+                                            <Toggle
+                                                key={status}
+                                                pressed={newEntity.statuses.includes(status)}
+                                                onPressedChange={() => toggleNewEntityStatus(status)}
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-xs"
+                                            >
+                                                {status}
+                                            </Toggle>
+                                        ))}
+                                        {/* Show custom statuses that aren't in STATUS_OPTIONS */}
+                                        {newEntity.statuses
+                                            .filter((s) => !STATUS_OPTIONS.includes(s))
+                                            .map((status) => (
+                                                <Toggle
+                                                    key={status}
+                                                    pressed={true}
+                                                    onPressedChange={() => toggleNewEntityStatus(status)}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-xs bg-purple-600/50"
                                                 >
                                                     {status}
-                                                </Label>
-                                            </div>
-                                        ))}
+                                                </Toggle>
+                                            ))}
+                                    </div>
+                                    {/* Custom status input */}
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <Input
+                                            type="text"
+                                            value={newCustomStatus}
+                                            onChange={(e) => setNewCustomStatus(e.target.value)}
+                                            placeholder="Custom status..."
+                                            className="flex-1"
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && newCustomStatus.trim()) {
+                                                    e.preventDefault()
+                                                    if (!newEntity.statuses.includes(newCustomStatus.trim())) {
+                                                        setNewEntity({
+                                                            ...newEntity,
+                                                            statuses: [...newEntity.statuses, newCustomStatus.trim()]
+                                                        })
+                                                    }
+                                                    setNewCustomStatus('')
+                                                }
+                                            }}
+                                        />
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                if (newCustomStatus.trim() && !newEntity.statuses.includes(newCustomStatus.trim())) {
+                                                    setNewEntity({
+                                                        ...newEntity,
+                                                        statuses: [...newEntity.statuses, newCustomStatus.trim()]
+                                                    })
+                                                    setNewCustomStatus('')
+                                                }
+                                            }}
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                        </Button>
                                     </div>
                                 </div>
                             </div>
@@ -600,7 +676,9 @@ function CombatTracker() {
                                 onDelete={() => deleteEntity(entity.id)}
                                 onUpdate={(updates) => updateEntity(entity.id, updates)}
                                 onToggleStatus={(status) => toggleStatus(entity.id, status)}
-                                getHealthColor={getHealthColor}
+                                onAddCustomStatus={(status) => addCustomStatus(entity.id, status)}
+                                isDungeonMaster={isDungeonMaster}
+                                isPlayer={isPlayer}
                             />
                         ))
                     )}
@@ -618,7 +696,9 @@ interface EntityCardProps {
     onDelete: () => void
     onUpdate: (updates: Partial<Entity>) => void
     onToggleStatus: (status: string) => void
-    getHealthColor: (health: number, maxHealth: number) => string
+    onAddCustomStatus: (status: string) => void
+    isDungeonMaster: boolean
+    isPlayer: boolean
 }
 
 const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCard(
@@ -630,13 +710,25 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
         onDelete,
         onUpdate,
         onToggleStatus,
-        getHealthColor,
+        onAddCustomStatus,
+        isDungeonMaster: _isDungeonMaster,
+        isPlayer,
     },
     ref
 ) {
+    // _isDungeonMaster available for future DM-specific features
+    void _isDungeonMaster
     const [customAmount, setCustomAmount] = useState<number>(2)
-    const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
+    const [customStatusInput, setCustomStatusInput] = useState('')
     const isDead = entity.health <= 0
+    const healthPercent = Math.max(0, Math.min(100, (entity.health / entity.maxHealth) * 100))
+
+    // Calculate HP lost for players viewing NPCs
+    const hpLost = entity.maxHealth - entity.health
+
+    // Check if this entity's HP should be hidden from the current player
+    // Players can only see HP lost for NPCs, not the exact HP values
+    const shouldHideHpDetails = isPlayer && entity.isNpc && !isDead
 
     const handleHeal = (amount: number) => {
         const newHealth = Math.min(entity.health + amount, entity.maxHealth)
@@ -697,25 +789,27 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                 </Badge>
             )}
 
-            {/* Floating Action Buttons */}
-            <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1 sm:gap-2 z-20">
-                <Button
-                    onClick={onEdit}
-                    size="icon"
-                    variant={isEditing ? 'default' : 'outline'}
-                    className="w-7 h-7 sm:w-8 sm:h-8"
-                >
-                    {isEditing ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
-                </Button>
-                <Button
-                    onClick={onDelete}
-                    size="icon"
-                    variant="destructive"
-                    className="w-7 h-7 sm:w-8 sm:h-8"
-                >
-                    <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                </Button>
-            </div>
+            {/* Floating Action Buttons - Hide for players viewing NPCs */}
+            {_isDungeonMaster && (
+                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-1 sm:gap-2 z-20">
+                    <Button
+                        onClick={onEdit}
+                        size="icon"
+                        variant={isEditing ? 'default' : 'outline'}
+                        className="w-7 h-7 sm:w-8 sm:h-8"
+                    >
+                        {isEditing ? <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Pencil className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+                    </Button>
+                    <Button
+                        onClick={onDelete}
+                        size="icon"
+                        variant="destructive"
+                        className="w-7 h-7 sm:w-8 sm:h-8"
+                    >
+                        <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </Button>
+                </div>
+            )}
 
             <div className={`p-3 sm:p-4 pl-10 sm:pl-12 ${isDead ? 'opacity-60' : ''}`}>
                 <div className="flex items-start">
@@ -729,16 +823,23 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                                 className="max-w-full sm:max-w-xs"
                             />
                         ) : (
-                            <h3 className={`text-lg sm:text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
-                                {entity.name}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                                <h3 className={`text-lg sm:text-xl font-bold truncate retro ${isDead ? 'text-gray-500 line-through' : 'text-white'}`}>
+                                    {entity.name}
+                                </h3>
+                                {entity.isNpc && (
+                                    <Badge variant="destructive" className="text-[10px] shrink-0">
+                                        NPC
+                                    </Badge>
+                                )}
+                            </div>
                         )}
 
                         {/* Health Bar */}
                         <div className="mt-3">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
-                                {isEditing ? (
+                            {isEditing ? (
+                                <div className="flex items-center gap-2 mb-1">
+                                    <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
                                     <div className="flex items-center gap-1">
                                         <Input
                                             type="number"
@@ -754,20 +855,46 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                                             className="w-20"
                                         />
                                     </div>
-                                ) : (
-                                    <span className={`text-sm ${isDead ? 'text-gray-500' : 'text-gray-300'}`}>
-                                        {entity.health} / {entity.maxHealth}
-                                    </span>
-                                )}
-                            </div>
-                            <Progress
-                                value={healthPercent}
-                                variant="retro"
-                                progressBg={isDead ? 'bg-gray-600' : getHealthColor(entity.health, entity.maxHealth)}
-                                className="h-4"
-                            />
+                                </div>
+                            ) : shouldHideHpDetails ? (
+                                <>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
+                                        <span className="text-sm text-amber-300">
+                                            HP Lost: {hpLost}
+                                        </span>
+                                    </div>
+                                    <div className="h-4 bg-slate-700/50 border border-slate-600 flex items-center justify-center">
+                                        <span className="text-[10px] text-gray-400 tracking-wide">???</span>
+                                    </div>
+                                </>
+                            ) : entity.isNpc ? (
+                                <EnemyHealthDisplay
+                                    enemyName=""
+                                    showLevel={false}
+                                    showHealthText={true}
+                                    currentHealth={entity.health}
+                                    maxHealth={entity.maxHealth}
+                                    healthBarColor={isDead ? 'bg-gray-600' : undefined}
+                                />
+                            ) : (
+                                <>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <Heart className={`w-4 h-4 ${isDead ? 'text-gray-500' : 'text-red-400'}`} />
+                                        <span className={`text-sm ${isDead ? 'text-gray-500' : 'text-gray-300'}`}>
+                                            {entity.health} / {entity.maxHealth}
+                                        </span>
+                                    </div>
+                                    <HealthBar
+                                        value={healthPercent}
+                                        variant="retro"
+                                        className="h-4"
+                                        props={isDead ? { progressBg: 'bg-gray-600' } : undefined}
+                                    />
+                                </>
+                            )}
 
-                            {/* Heal/Damage Buttons */}
+                            {/* Heal/Damage Buttons - Hide for players viewing NPCs */}
                             {!isEditing && (
                                 <div className="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
                                     {/* Quick buttons */}
@@ -848,34 +975,67 @@ const EntityCard = forwardRef<HTMLDivElement, EntityCardProps>(function EntityCa
                         )}
 
                         {/* Statuses */}
-                        <div className="mt-3 flex flex-wrap gap-2">
-                            {isEditing ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full">
-                                    {STATUS_OPTIONS.map((status) => (
-                                        <div key={status} className="flex items-center gap-2">
-                                            <Checkbox
-                                                id={`${entity.id}-status-${status}`}
-                                                checked={entity.statuses.includes(status)}
-                                                onCheckedChange={() => onToggleStatus(status)}
-                                            />
-                                            <Label
-                                                htmlFor={`${entity.id}-status-${status}`}
-                                                className="cursor-pointer"
-                                            >
-                                                {status}
-                                            </Label>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : entity.statuses.length > 0 ? (
-                                entity.statuses.map((status) => (
-                                    <Badge key={status}>
+                        <div className="mt-3 space-y-2">
+                            <div className="flex flex-wrap gap-1.5">
+                                {STATUS_OPTIONS.map((status) => (
+                                    <Toggle
+                                        key={status}
+                                        pressed={entity.statuses.includes(status)}
+                                        onPressedChange={() => onToggleStatus(status)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-[10px] sm:text-xs h-7 px-2"
+                                    >
                                         {status}
-                                    </Badge>
-                                ))
-                            ) : (
-                                <span className="text-xs text-gray-500 italic">No status effects</span>
-                            )}
+                                    </Toggle>
+                                ))}
+                                {/* Show custom statuses that aren't in STATUS_OPTIONS */}
+                                {entity.statuses
+                                    .filter((s) => !STATUS_OPTIONS.includes(s))
+                                    .map((status) => (
+                                        <Toggle
+                                            key={status}
+                                            pressed={true}
+                                            onPressedChange={() => onToggleStatus(status)}
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-[10px] sm:text-xs h-7 px-2 bg-purple-600/50 data-[state=on]:bg-purple-600"
+                                        >
+                                            {status}
+                                        </Toggle>
+                                    ))}
+                            </div>
+                            {/* Custom status input */}
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="text"
+                                    value={customStatusInput}
+                                    onChange={(e) => setCustomStatusInput(e.target.value)}
+                                    placeholder="Custom status..."
+                                    className="flex-1 h-8 text-xs"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && customStatusInput.trim()) {
+                                            e.preventDefault()
+                                            onAddCustomStatus(customStatusInput.trim())
+                                            setCustomStatusInput('')
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8"
+                                    onClick={() => {
+                                        if (customStatusInput.trim()) {
+                                            onAddCustomStatus(customStatusInput.trim())
+                                            setCustomStatusInput('')
+                                        }
+                                    }}
+                                >
+                                    <Plus className="w-3 h-3" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
